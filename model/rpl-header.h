@@ -21,7 +21,10 @@
 #define RPL_HEADER_H
 
 #include "ns3/header.h"
+#include "ns3/object.h"
 #include "ns3/icmpv6-header.h"
+
+#include <bitset>
 
 
 namespace ns3 {
@@ -63,14 +66,15 @@ public:
    */
   enum RplPacketCode_e : uint8_t {TYPE_DIS=0, TYPE_DIO=1, TYPE_DAO=2, TYPE_DAO_ACK=3, TYPE_CONS_CHECK=138} RplPacketCode_t;
   enum OptionType_e : uint8_t {PAD1=0, PADN=1, DAG_METRIC_CONTAINER=2, ROUTING_INFORMATION=3, DODAG_CONFIGURATION=4, RPL_TARGET=5, TRANSIT_INFORMATION=6, SOLICITED_INFORMATION=7, PREFIX_INFORMATION=8, RPL_TARGET_DESCRIPTOR=9} OptionType_t;
-  RplHeader(); 
+  RplHeader();
+  static TypeId GetTypeId ();
 };
 
 /**
  * \ingroup rpl
  * \brief   RPL header options field
  */
-class RplHeaderOptions
+class RplHeaderOption : public Object
 {
 public:
   /**
@@ -80,10 +84,73 @@ public:
    * \param length the length of the data (0)
    * \param data the data bits (0)
    */
-  RplHeaderOptions(uint8_t type = 0, uint8_t length = 0, std::vector<uint8_t> data = {});
+  RplHeaderOption (uint8_t type = 0, uint8_t optionLength = 0, std::vector<uint8_t> data = {});
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId ();
+  uint8_t GetType();
+  uint8_t GetOptionLength();
+  std::vector<uint8_t> GetData();
+  void Print();
+  /**
+   * \brief Set RPL Header Options to PadN
+   * 
+   * \param optionLength length of the padding, valid from 0 to 5
+   * \verbatim 
+      0                   1                   2
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+- - - - - - - -
+      |   Type = 0x01 | Option Length | 0x00 Padding...
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+- - - - - - - -
+   * \endverbatim
+   * 
+   */
+  void SetPadN (uint8_t optionLength);
+  /**
+   * \brief Set RPL Header Options to DAG Metric Container
+   * 
+   * \param optionLength length of the padding
+   * \param metricData the metric data
+   * \verbatim 
+      0                   1                   2
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+- - - - - - - -
+      |   Type = 0x02 | Option Length | Metric Data
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+- - - - - - - -
+   * \endverbatim
+   * 
+   */
+  void SetDagMetricContainer(uint8_t optionLength, std::vector<uint8_t> metricData);
+  void SetDagMetricContainer(std::vector<uint8_t> metricData);
+  /**
+   * \brief Set RPL Header Options to Route Information
+   * 
+   * \param optionLength length of the padding
+   * \param prefixLength 
+   * \param flags 
+   * \param routeLifetime 
+   * \param prefix 
+   * \verbatim 
+      0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |   Type = 0x03 | Option Length | Prefix Length |Resvd|Prf|Resvd|
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                        Route Lifetime                         |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                                                               |
+      .                   Prefix (Variable Length)                    .
+      .                                                               .
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   * \endverbatim
+   */
+  void SetRouteInformation(uint8_t optionLength, uint8_t flags, uint32_t routeLifetime, Ipv6Prefix prefix);
+
 private:
   uint8_t m_type;
-  uint8_t m_length;
+  uint8_t m_optionLength;
   std::vector<uint8_t> m_data;
 };
 
@@ -109,13 +176,18 @@ public:
    * \param reserved the reserved bits (0)
    * \param options the options bits (0)
    */
-  DisHeader (uint8_t flags = 0, uint8_t reserved = 0, RplHeaderOptions options = {});
+  DisHeader (uint8_t flags = 0, uint8_t reserved = 0, std::vector<RplHeaderOption> options = {});
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId ();
   uint8_t GetFlags();
   void SetFlags(uint8_t flags);
 private:
   uint8_t m_flags;
   uint8_t m_reserved;
-  RplHeaderOptions m_options;
+  std::vector<RplHeaderOption> m_options;
 };
 
 /**
@@ -147,7 +219,7 @@ public:
   /**
    * constructor
    *
-   * \param instanceId the rpl instance ID(0)
+   * \param rplInstanceId the rpl instance ID(0)
    * \param versionNumber the rpl version number(0)
    * \param rank the node rank (0)
    * \param grounded Grounded flag (0)
@@ -159,8 +231,7 @@ public:
    * \param dodagid 128-bit IPv6 address set by a DODAG root that uniquely identifies a DODAG
    * \param options the options bits (0)
    */
-  DioHeader (Ipv6Address dodagid, 
-  uint8_t instanceId = 0, 
+  DioHeader (uint8_t rplInstanceId = 0, 
   uint8_t versionNumber = 0,
   uint16_t rank = 0,
   uint8_t grounded = 0,
@@ -169,9 +240,15 @@ public:
   uint8_t dtsn = 0,
   uint8_t flags = 0,
   uint8_t reserved = 0,
-  RplHeaderOptions options = {});
+  Ipv6Address dodagid = Ipv6Address(),
+  std::vector<RplHeaderOption> options = {});
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId ();
 private:
-  uint8_t m_instanceId : 8;
+  uint8_t m_rplInstanceId;
   uint8_t m_versionNumber;
   uint16_t m_rank;
   uint8_t m_grounded : 1;
@@ -181,7 +258,7 @@ private:
   uint8_t m_flags;
   uint8_t m_reserved;
   Ipv6Address m_dodagid;
-  RplHeaderOptions m_options;
+  std::vector<RplHeaderOption> m_options;
 };
 
 
@@ -211,7 +288,7 @@ class DaoHeader : public RplHeader
 public:
   /**
    * constructor
-   * \param instanceId the rpl instance ID(0)
+   * \param rplInstanceId the rpl instance ID(0)
    * \param k
    * \param d
    * \param flags the message flags (0)
@@ -220,23 +297,28 @@ public:
    * \param dodagid 128-bit IPv6 address set by a DODAG root that uniquely identifies a DODAG
    * \param options the options bits (0)
    */
-  DaoHeader (uint8_t instanceId = 0, 
+  DaoHeader (uint8_t rplInstanceId = 0, 
   uint8_t k = 0,
   uint8_t d = 0,
   uint8_t flags = 0,
   uint8_t reserved = 0,
   uint8_t daoSequence = 0,
-  Ipv6Address dodagid = {},
-  RplHeaderOptions options = {});
+  Ipv6Address dodagid = Ipv6Address(),
+  std::vector<RplHeaderOption> options = {});
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId ();
 private:
-  uint8_t m_instanceId;
+  uint8_t m_rplInstanceId;
   uint8_t m_k : 1;
   uint8_t m_d : 1;
   uint8_t m_flags : 6;
   uint8_t m_reserved;
   uint8_t m_daoSequence;
   Ipv6Address m_dodagid;
-  RplHeaderOptions m_options;
+  std::vector<RplHeaderOption> m_options;
 };
 
 /**
@@ -266,7 +348,7 @@ class DaoAckHeader : public RplHeader
 public:
   /**
    * constructor
-   * \param instanceId the rpl instance ID(0)
+   * \param rplInstanceId the rpl instance ID(0)
    * \param d
    * \param reserved the reserved bits (0)
    * \param daoSequence
@@ -274,21 +356,26 @@ public:
    * \param dodagid 128-bit IPv6 address set by a DODAG root that uniquely identifies a DODAG
    * \param options the options bits (0)
    */
-  DaoAckHeader (uint8_t instanceId = 0, 
+  DaoAckHeader (uint8_t rplInstanceId = 0, 
   uint8_t d = 0,
   uint8_t reserved = 0,
   uint8_t daoSequence = 0,
   uint8_t status = 0,
-  Ipv6Address dodagid = {},
-  RplHeaderOptions options = {});
+  Ipv6Address dodagid = Ipv6Address(),
+  std::vector<RplHeaderOption> options = {});
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId ();
 private:
-  uint8_t m_instanceId;
+  uint8_t m_rplInstanceId;
   uint8_t m_d : 1;
   uint8_t m_reserved : 7;
   uint8_t m_daoSequence;
   uint8_t m_status;
   Ipv6Address m_dodagid;
-  RplHeaderOptions m_options;
+  std::vector<RplHeaderOption> m_options;
 };
 
 /**
@@ -319,7 +406,7 @@ class CcHeader : public RplHeader
 public:
   /**
    * constructor
-   * \param instanceId the rpl instance ID(0)
+   * \param rplInstanceId the rpl instance ID(0)
    * \param r The 'R' flag indicates whether the CC message is a response.
    * \param flags the reserved bits (0)
    * \param ccNonce 16-bit unsigned integer set by a CC request.  The
@@ -332,21 +419,26 @@ public:
    *     the Destination Counter field to zero.
    * \param options the options bits (0)
    */
-  CcHeader (uint8_t instanceId = 0, 
+  CcHeader (uint8_t rplInstanceId = 0, 
   uint8_t r = 0,
   uint8_t flags = 0,
   uint16_t ccNonce = 0,
-  Ipv6Address dodagid = {},
+  Ipv6Address dodagid = Ipv6Address(),
   uint32_t destinationCounter = 0,
-  RplHeaderOptions options = {});
+  std::vector<RplHeaderOption> options = {});
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId ();
 private:
-  uint8_t m_instanceId;
+  uint8_t m_rplInstanceId;
   uint8_t m_r : 1;
   uint8_t m_flags : 7;
   uint16_t m_ccNonce;
   Ipv6Address m_dodagid;
   uint32_t m_destinationCounter;
-  RplHeaderOptions m_options;
+  std::vector<RplHeaderOption> m_options;
 };
 
 
