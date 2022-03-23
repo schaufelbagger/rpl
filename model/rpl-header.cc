@@ -1,4 +1,22 @@
-
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+/*
+ * Copyright (c) 2022 COPYRIGHTHOLDER
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * Author: Alexander Baranyai <e1525251@student.tuwien.ac.at>
+ */
 #include "rpl-header.h"
 
 namespace ns3 {
@@ -23,88 +41,6 @@ TypeId RplHeader::GetTypeId ()
   return tid;
 }
 
-
-RplHeaderOption::RplHeaderOption (uint8_t type, uint8_t optionLength, std::vector<uint8_t> data) 
-:
-m_type (type),
-m_optionLength (optionLength),
-m_data (data)
-{
-}
-TypeId RplHeaderOption::GetTypeId ()
-{
-  static TypeId tid = TypeId ("ns3::rpl::RplHeaderOption")
-    .SetParent<Object> ()
-    .SetGroupName ("Rpl")
-    .AddConstructor<RplHeaderOption> ()
-  ;
-  return tid;
-}
-
-  uint8_t RplHeaderOption::GetType ()
-  {
-    return m_type;
-  }
-  uint8_t RplHeaderOption::GetOptionLength ()
-  {
-    return m_optionLength;
-  }
-  std::vector<uint8_t> RplHeaderOption::GetData()
-  {
-    return m_data;
-  }
-
-
-void RplHeaderOption::Print ()
-{
-  std::cout << "RplHeaderOption:" << std::endl;
-  std::cout<<"type: "<< unsigned(m_type) << std::endl;
-  std::cout<<"length: "<< unsigned(m_optionLength) << std::endl;
-  for (auto item: m_data)
-  {
-    std::bitset<8> x(item);
-    std::cout << x << ", " << unsigned(item) << std::endl;;
-  }
-}
-
-void RplHeaderOption::SetPadN (uint8_t optionLength)
-{
-  m_type = 0x01;
-  m_optionLength = optionLength;
-  if (optionLength > 5)
-  {
-    NS_FATAL_ERROR ("In RPL Header Option PadN the length was set to an invalid value.");
-  }
-  m_data.resize (optionLength,0);
-}
-
-void RplHeaderOption::SetDagMetricContainer (uint8_t optionLength, std::vector<uint8_t> metricData)
-{
-  m_type = 0x02;
-  m_optionLength = optionLength;
-  m_data = metricData;
-}
-void RplHeaderOption::SetDagMetricContainer (std::vector<uint8_t> metricData)
-{
-  m_type = 0x02;
-  m_optionLength = metricData.size ();
-  m_data = metricData;
-}
-
-void RplHeaderOption::SetRouteInformation (uint8_t optionLength, uint8_t flags, uint32_t routeLifetime, Ipv6Prefix prefix)
-{
-  uint8_t buf[16];
-  uint8_t prefixLength = prefix.GetPrefixLength ();
-  m_type = 0x03;
-  m_optionLength = optionLength;
-  m_data.push_back(prefixLength);
-  m_data.push_back(flags);
-  std::memcpy (&routeLifetime, &m_data[2], sizeof(uint32_t));
-  prefix.GetBytes(buf);
-  for (int i = 0; i < prefixLength; i++) {
-    m_data.push_back(buf[i]);
-  }
-}
 
 
 DisHeader::DisHeader (uint8_t flags, uint8_t reserved, std::vector<RplHeaderOption> options) : RplHeader(), 

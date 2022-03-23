@@ -17,53 +17,31 @@
  *
  * Author: Alexander Baranyai <e1525251@student.tuwien.ac.at>
  */
-#include "rpl-helper.h"
-#include "ns3/rpl.h"
-#include "ns3/node-list.h"
-#include "ns3/names.h"
-#include "ns3/ptr.h"
+#include "rpl-objective-function.h"
 
 namespace ns3 {
 
+NS_LOG_COMPONENT_DEFINE ("RplObjectiveFunction");
 
-RplHelper::RplHelper(uint16_t instanceId)
+namespace rpl {
+
+
+RplObjectiveFunction::RplObjectiveFunction(RplObjectiveFunctionType_e type, double minHopRankIncrease) 
 :
-m_instanceId (instanceId)
+m_minHopRankIncrease (minHopRankIncrease),
+m_type (type)
 {
-  m_agentFactory.SetTypeId ("ns3::rpl::RoutingProtocol");
+
 }
 
-RplHelper::RplHelper (const RplHelper &o) : m_agentFactory (o.m_agentFactory)
+
+uint16_t RplObjectiveFunction::calculateRank ()
 {
+  // TODO change
+  uint16_t rank = 1;
+  return floor(rank/m_minHopRankIncrease);
 }
 
-RplHelper::~RplHelper ()
-{
+
 }
-
-RplHelper* RplHelper::Copy (void) const
-{
-  return new RplHelper(*this);
-}
-
-Ptr<Ipv6RoutingProtocol> RplHelper::Create (Ptr<Node> node) const
-{
-  Ptr<rpl::RoutingProtocol> agent = m_agentFactory.Create<rpl::RoutingProtocol> ();
-
-  agent->SetInstanceId (m_instanceId);
-
-  node->AggregateObject (agent);
-  return agent;
-}
-
-void RplHelper::Set (std::string name, const AttributeValue &value)
-{
-  m_agentFactory.Set (name, value);
-}
-
-void RplHelper::SetInstanceId (uint16_t value)
-{
-  m_instanceId = value;
-}
-
 }
