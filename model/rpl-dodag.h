@@ -37,14 +37,14 @@ public:
   /**
    * constructor
    *
-   * \param dodagid 128-bit IPv6 address set by a DODAG root that uniquely identifies a DODAG
+   * \param dodagId 128-bit IPv6 address set by a DODAG root that uniquely identifies a DODAG
    * \param grounded Grounded flag (0)
    */
   RplDodag (uint8_t grounded = 0,
-    Ipv6Address dodagid = {});
+    Ipv6Address dodagId = {});
 private:
   uint8_t m_grounded : 1;
-  Ipv6Address m_dodagid = {};
+  Ipv6Address m_dodagId = {};
 };
 
 }
