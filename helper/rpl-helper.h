@@ -45,7 +45,7 @@ public:
    * Create an RplHelper that makes life easier for people who want to install
    * RPL routing to nodes.
    */
-  RplHelper (uint16_t instanceId = 0);
+  RplHelper (uint16_t instanceId = 0, rpl::RplMop_e mop = rpl::MOP_STORING_NO_MULTICAST, bool isRoot = false);
 
   
   ~RplHelper ();
@@ -88,15 +88,35 @@ public:
    * 
    * \param value the value of the rpl instance ID to set.
    */
-  void SetInstanceId (uint16_t value);
+  void SetInstanceId (uint8_t value);
+
+  void SetRoot (bool isRoot);
+  void AssignRoot (NodeContainer c, uint8_t instanceId, rpl::RplMop_e mop, bool isRoot = true);
+  void AssignRoot (NodeContainer c);
+
+  /**
+   * \brief Exclude an interface from RPL protocol.
+   *
+   * You have to call this function \a before installing RIPng in the nodes.
+   *
+   * Note: the exclusion means that RPL will not be propagated on that interface.
+   * The network prefix on that interface will be still considered in RPL.
+   *
+   * \param node the node
+   * \param interface the network interface to be excluded
+   */
+  void ExcludeInterface (Ptr<Node> node, uint32_t interface);
 
 private:
-  uint16_t m_instanceId;
+  uint8_t m_instanceId;
+  rpl::RplMop_e m_mop;
+  bool m_isRoot;
+  std::map< Ptr<Node>, std::set<uint32_t> > m_interfaceExclusions; // Interface Exclusion set
   RplHelper &operator = (const RplHelper &);
   ObjectFactory m_agentFactory; //!< Object factory
 };
 
-}
 
+}
 #endif /* RPL_HELPER_H */
 
