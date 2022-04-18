@@ -28,6 +28,11 @@ namespace ns3 {
 namespace rpl {
 
 
+// RPL params [RFC6550, 17]
+#define BASE_RANK 0
+#define ROOT_RANK 1
+#define INF_RANK 0xFFFF
+#define DEFAULT_MIN_HOP_RANK_INCREASE 256
 /**
  * \ingroup rpl
  * \brief   RPL objective function
