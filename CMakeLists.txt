@@ -22,11 +22,17 @@ build_lib(
                  helper/rpl-helper.h
                  model/rpl-header.h
                  model/rpl-header-option.h
+                 model/rpl-objective-function.h
     LIBRARIES_TO_LINK ${libinternet}
+                      ${libwifi}
+                      ${liblr-wpan}
+                      ${libinternet-apps}
+                      ${libsixlowpan}
     TEST_SOURCES test/rpl-test-suite.cc
                  test/rpl-regression-test-suite.cc
                  test/rpl-hello-regression-test.cc
                  test/rpl-header-regression-test.cc
+                 test/rpl-header-option-regression-test.cc
                  test/rpl-two-nodes-test.cc
                  ${examples_as_tests_sources}
 )
