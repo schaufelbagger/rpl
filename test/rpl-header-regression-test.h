@@ -17,40 +17,40 @@
  *
  * Author: Alexander Baranyai <e1525251@student.tuwien.ac.at>
  */
+#ifndef RPL_HEADER_REGRESSION_TEST_H
+#define RPL_HEADER_REGRESSION_TEST_H
 
-// Include a header file from your module to test.
-#include "ns3/rpl.h"
-
-// An essential include is test.h
 #include "ns3/test.h"
+#include "ns3/nstime.h"
 
-#include "rpl-hello-regression-test.h"
-#include "rpl-header-regression-test.h"
-#include "rpl-header-option-regression-test.h"
-
-
-using namespace ns3;
-using namespace rpl;
-
+namespace ns3 {
+namespace rpl {
 /**
  * \ingroup rpl-test
  * \ingroup tests
  *
- * Various rpl regression tests
+ * \brief Trivial (still useful) test of RPL operation
+ *
+ * This test creates 2 stations with point-to-point link and runs OLSR without any extra traffic.
  */
-class RegressionTestSuite : public TestSuite
+class RplHeaderRegressionTest : public TestCase
 {
 public:
-  RegressionTestSuite();
+  RplHeaderRegressionTest ();
+  ~RplHeaderRegressionTest ();
+private:
+  /// Total simulation time
+  const Time m_time;
+  /// Create & configure test network
+  void DisTest ();
+  void DioTest ();
+  void DaoTest ();
+  void DaoAckTest ();
+  void CcTest ();
+  void DoRun ();
 };
 
-RegressionTestSuite::RegressionTestSuite () : TestSuite ("rpl-reg", SYSTEM)
-{
-  // TestDuration for TestCase can be QUICK, EXTENSIVE or TAKES_FOREVER
-  AddTestCase (new RplHeaderRegressionTest, TestCase::QUICK);
-  AddTestCase (new RplHeaderOptionRegressionTest, TestCase::QUICK);
-  AddTestCase (new RplHelloRegressionTest, TestCase::QUICK);
+}
 }
 
-// Do not forget to allocate an instance of this TestSuite
-static RegressionTestSuite srplRegressionTestSuite;
+#endif /* RPL_HEADER_REGRESSION_TEST_H */
