@@ -93,9 +93,8 @@ public:
    *
    * \param flags the message flags (0)
    * \param reserved the reserved bits (0)
-   * \param options the options bits (0)
    */
-  DisHeader (uint8_t flags = 0, uint8_t reserved = 0, std::vector<RplHeaderOption> options = {});
+  DisHeader (uint8_t flags = 0, uint8_t reserved = 0);
   /**
    * \brief Get the type ID.
    * \return the object TypeId

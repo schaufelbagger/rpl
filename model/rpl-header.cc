@@ -50,11 +50,10 @@ TypeId RplIcmpv6Header::GetTypeId ()
 
 // ---------------- RPL DIS Message -------------------------------
 
-DisHeader::DisHeader (uint8_t flags, uint8_t reserved, std::vector<RplHeaderOption> options) 
+DisHeader::DisHeader (uint8_t flags, uint8_t reserved) 
 :
 m_flags (flags),
-m_reserved (reserved),
-m_options (options)
+m_reserved (reserved)
 {
 }
 
