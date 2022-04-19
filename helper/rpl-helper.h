@@ -45,7 +45,13 @@ public:
    * Create an RplHelper that makes life easier for people who want to install
    * RPL routing to nodes.
    */
-  RplHelper (uint16_t instanceId = 0, rpl::RplMop_e mop = rpl::MOP_STORING_NO_MULTICAST, bool isRoot = false);
+  RplHelper ( uint16_t instanceId = 0, 
+              rpl::RplMop_e mop = rpl::MOP_STORING_NO_MULTICAST, 
+              bool isRoot = false, 
+              rpl::RplDisMop_e disMop = rpl::DIS_MOP_WAIT, 
+              Time disMessageTime = Seconds (1.0), 
+              int numberOfDisMessages = 5
+            );
 
   
   ~RplHelper ();
@@ -95,6 +101,18 @@ public:
   void AssignRoot (NodeContainer c);
 
   /**
+   * \brief sets the initialization mode of the node if it should wait for DIO messages or actively send DIS messages and become a root if no DIO message was received
+   * 
+   * \param c 
+   * \param disMop 
+   * \param disMessageTime 
+   * \param numberOfDisMessages 
+   * \param instanceId 
+   * \param mop 
+   */
+  void AssignDisMop (NodeContainer c, rpl::RplDisMop_e disMop, Time disMessageTime, int numberOfDisMessages, uint8_t instanceId, rpl::RplMop_e mop);
+  void AssignDisMop (NodeContainer c);
+  /**
    * \brief Exclude an interface from RPL protocol.
    *
    * You have to call this function \a before installing RIPng in the nodes.
@@ -107,10 +125,16 @@ public:
    */
   void ExcludeInterface (Ptr<Node> node, uint32_t interface);
 
+
 private:
-  uint8_t m_instanceId;
+  uint8_t m_instanceId = RPL_DEFAULT_INSTANCE;
   rpl::RplMop_e m_mop;
   bool m_isRoot;
+  /// DIS Mode of Operation
+  rpl::RplDisMop_e m_disMop;
+  Time m_disMessageTime;
+  int m_numberOfDisMessages;
+
   std::map< Ptr<Node>, std::set<uint32_t> > m_interfaceExclusions; // Interface Exclusion set
   RplHelper &operator = (const RplHelper &);
   ObjectFactory m_agentFactory; //!< Object factory

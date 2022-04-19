@@ -26,11 +26,14 @@
 namespace ns3 {
 
 
-RplHelper::RplHelper(uint16_t instanceId, rpl::RplMop_e mop, bool isRoot)
+RplHelper::RplHelper(uint16_t instanceId, rpl::RplMop_e mop, bool isRoot, rpl::RplDisMop_e disMop, Time disMessageTime, int numberOfDisMessages)
 :
 m_instanceId (instanceId),
 m_mop (mop),
-m_isRoot (isRoot)
+m_isRoot (isRoot),
+m_disMop (disMop),
+m_disMessageTime (disMessageTime),
+m_numberOfDisMessages (numberOfDisMessages)
 {
   m_agentFactory.SetTypeId ("ns3::rpl::RoutingProtocol");
 }
@@ -53,6 +56,7 @@ Ptr<Ipv6RoutingProtocol> RplHelper::Create (Ptr<Node> node) const
   Ptr<rpl::RoutingProtocol> agent = m_agentFactory.Create<rpl::RoutingProtocol> ();
 
   //agent->SetInstanceId (m_instanceId);
+
   
   std::map<Ptr<Node>, std::set<uint32_t> >::const_iterator it = m_interfaceExclusions.find (node);
   if(it != m_interfaceExclusions.end ())
@@ -122,6 +126,56 @@ void RplHelper::AssignRoot (NodeContainer c, uint8_t instanceId, rpl::RplMop_e m
 void RplHelper::AssignRoot (NodeContainer c)
 {
   return AssignRoot (c, m_instanceId, m_mop, true);
+}
+
+void RplHelper::AssignDisMop (NodeContainer c, rpl::RplDisMop_e disMop, Time disMessageTime, int numberOfDisMessages, uint8_t instanceId, rpl::RplMop_e mop)
+{
+  Ptr<Node> node;
+  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+    {
+      node = (*i);
+      Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
+      NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
+      Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
+      NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
+      Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
+      if (rpl)
+      {
+        rpl->SetDisMop (disMop);
+        rpl->SetDisMessageTime (disMessageTime);
+        rpl->SetNumberOfDisMessages (numberOfDisMessages);
+        rpl->SetInstanceId (instanceId);
+        rpl->SetMop (mop);
+        continue;
+      }
+      // RPL may also be in a list
+      Ptr<Ipv6ListRouting> list = DynamicCast<Ipv6ListRouting> (proto);
+      if (list)
+        {
+          int16_t priority;
+          Ptr<Ipv6RoutingProtocol> listProto;
+          Ptr<rpl::RoutingProtocol> listRpl;
+          for (uint32_t i = 0; i < list->GetNRoutingProtocols (); i++)
+            {
+              listProto = list->GetRoutingProtocol (i, priority);
+              listRpl = DynamicCast<rpl::RoutingProtocol> (listProto);
+              if (listRpl)
+                {
+                  listRpl->SetDisMop (disMop);
+                  listRpl->SetDisMessageTime (disMessageTime);
+                  listRpl->SetNumberOfDisMessages (numberOfDisMessages);
+                  listRpl->SetInstanceId (instanceId);
+                  listRpl->SetMop (mop);
+                  break;
+                }
+            }
+        }
+    }
+  return;
+}
+void RplHelper::AssignDisMop (NodeContainer c)
+{
+  return AssignDisMop (c, m_disMop, m_disMessageTime, m_numberOfDisMessages, m_instanceId, m_mop);
 }
 
 void RplHelper::ExcludeInterface (Ptr<Node> node, uint32_t interface)

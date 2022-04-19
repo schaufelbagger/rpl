@@ -23,7 +23,9 @@
 #include "ns3/ipv6-routing-protocol.h"
 #include "ns3/ipv6-route.h"
 #include "ns3/node.h"
+#include "ns3/timer.h"
 #include "ns3/trickle-timer.h"
+
 
 #include "rpl-header.h"
 #include "rpl-header-option.h"
@@ -39,7 +41,7 @@ namespace rpl {
 #define RPL_ALL_NODE "ff02::1a"
 
 // Trickle timer parameter [RFC6550, 8.3.1]
-#define DEFAULT_DIO_INTERVAL_MIN 0x03
+#define DEFAULT_DIO_INTERVAL_MIN MilliSeconds(8)//0x03
 #define DEFAULT_DIO_INTERVAL_DOUBLINGS 0x03
 #define DEFAULT_DIO_REDUNDANCY_CONSTANT 0x14
 
@@ -49,6 +51,7 @@ namespace rpl {
 
 
 enum RplMop_e : uint8_t {MOP_NO_DOWNWARD_ROUTES=0, MOP_NON_STORING=1, MOP_STORING_NO_MULTICAST=2, MOP_STORING_MULTICAST=3};
+enum RplDisMop_e : uint8_t {DIS_MOP_WAIT=1, DIS_MOP_SEND=2};
 
 ///
 /// \ingroup rpl
@@ -100,7 +103,7 @@ public:
    * \brief Get if node is Root
    * \return if node is Root
    */
-  bool GetRoot ()
+  bool GetRoot () const
   {
     return m_isRoot;
   }
@@ -116,7 +119,7 @@ public:
    * \brief Get the Mode of Operation
    * \return the Mode of Operation
    */
-  RplMop_e GetMop ()
+  RplMop_e GetMop () const
   {
     return m_mop;
   }
@@ -132,7 +135,7 @@ public:
    * \brief Get the Instance Id
    * \return the Instance Id
    */
-  uint8_t GetInstanceId ()
+  uint8_t GetInstanceId () const
   {
     return m_instanceId;
   }
@@ -153,6 +156,54 @@ public:
   {
     return m_interfaceExclusions;
   }
+  /**
+   * \brief Set the DIS Mode of Operation
+   * \param mop the DIS Mode of Operation
+   */
+  void SetDisMop (RplDisMop_e disMop)
+  {
+    m_disMop = disMop;
+  }
+  /**
+   * \brief Get the DIS Mode of Operation
+   * \return the DIS Mode of Operation
+   */
+  RplDisMop_e GetDisMop () const
+  {
+    return m_disMop;
+  }
+  /**
+   * \brief Set the DIS Message Time
+   * \param disMessageTime the DIS Message Time
+   */
+  void SetDisMessageTime (Time disMessageTime)
+  {
+    m_disMessageTime = disMessageTime;
+  }
+  /**
+   * \brief Get the DIS Message Time
+   * \return the DIS Message Time
+   */
+  Time GetDisMessageTime () const
+  {
+    return m_disMessageTime;
+  }
+  /**
+   * \brief Set the Number Of DIS Messages
+   * \param numberOfDisMessages the Number Of DIS Messages
+   */
+  void SetNumberOfDisMessages (int numberOfDisMessages)
+  {
+    m_numberOfDisMessages = numberOfDisMessages;
+  }
+  /**
+   * \brief Get the Number Of DIS Messages
+   * \return the Number Of DIS Messages
+   */
+  int GetNumberOfDisMessages () const
+  {
+    return m_numberOfDisMessages;
+  }
 
 
 
@@ -161,11 +212,15 @@ public:
 private:
 
   void Start ();
+  void InitRoot ();
   /**
    * Receive and process control packet
    * \param socket input socket
    */
   void Receive (Ptr<Socket> socket);
+
+  void ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header);
+  void ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header);
 
   /**
    * \brief adds sending and receive sockets
@@ -188,6 +243,10 @@ private:
    * \brief Fires when trickle timer expires
    */
   void ExpireTimer (void);
+  /**
+   * \brief Fires when a DIS message shall be sent
+   */
+  void DisExpireTimer (void);
 
 
   bool m_initialized = false;
@@ -215,8 +274,15 @@ private:
   bool m_isRoot = false;
   bool m_isLeaf = false;
   bool m_isGrounded = false;
+  /// DIS Mode of Operation
+  RplDisMop_e m_disMop;
+  Time m_disMessageTime;
+  Timer m_disMessageTimer = Timer (Timer::CANCEL_ON_DESTROY);
+  int m_numberOfDisMessages;
+  int m_disMessageCounter = 0;
+  bool m_receivedDio = false;
   /// Timer
-  TrickleTimer m_trickleTimer = TrickleTimer (Time(DEFAULT_DIO_INTERVAL_MIN), DEFAULT_DIO_INTERVAL_DOUBLINGS,DEFAULT_DIO_REDUNDANCY_CONSTANT);
+  TrickleTimer m_trickleTimer = TrickleTimer (DEFAULT_DIO_INTERVAL_MIN, DEFAULT_DIO_INTERVAL_DOUBLINGS,DEFAULT_DIO_REDUNDANCY_CONSTANT);
 };
 
 

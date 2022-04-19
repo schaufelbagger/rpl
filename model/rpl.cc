@@ -105,29 +105,18 @@ void RoutingProtocol::DoInitialize ()
     RegisterSockets (i);
   }
 
-
   m_trickleTimer.SetFunction (&RoutingProtocol::ExpireTimer, this);
 
-  if (m_isRoot)
+  if (m_disMop == DIS_MOP_SEND)
   {
-    NS_ABORT_MSG_IF (m_mop > 3, "Mode of Operation is invalid");
-    if (m_mop >= 2)
-    {
-      m_isStoring = true;
-    }else{
-      m_isStoring = false;
-    }
+    m_disMessageTimer.SetFunction (&RoutingProtocol::DisExpireTimer, this);
+    m_disMessageTimer.SetDelay (m_disMessageTime);
+    m_disMessageTimer.Schedule ();
   }
 
   if (m_isRoot)
   {
-    m_rank = ROOT_RANK;
-    m_isGrounded = true;
-    m_prf = 0;
-    // [RFC 6550, 8.3.1]
-    m_trickleTimer.Enable ();
-
-    // TODO send DIS
+    InitRoot ();
   }
 
   std::cout<<"Is Root: "<< +m_isRoot <<std::endl;
@@ -135,6 +124,23 @@ void RoutingProtocol::DoInitialize ()
   std::cout<<"Instance ID: "<< +m_instanceId <<std::endl;
 
   Ipv6RoutingProtocol::DoInitialize ();
+}
+
+void RoutingProtocol::InitRoot ()
+{
+  NS_ABORT_MSG_IF (m_mop > 3, "Mode of Operation is invalid");
+  if (m_mop >= 2)
+  {
+    m_isStoring = true;
+  }else{
+    m_isStoring = false;
+  }
+
+  m_rank = ROOT_RANK;
+  m_isGrounded = true;
+  m_prf = 0;
+  // [RFC 6550, 8.3.1]
+  m_trickleTimer.Enable ();
 }
 
 TypeId RoutingProtocol::GetTypeId (void)
@@ -171,7 +177,7 @@ Ptr<Ipv6Route> RoutingProtocol::RouteOutput (Ptr< Packet > p,
 
   Ipv6Address destination = header.GetDestination ();
 
-  if (destination.IsMulticast ())
+  /*if (destination.IsMulticast ())
   {
     // Note:  Multicast routes for outbound packets are stored in the
     // normal unicast table.  An implication of this is that it is not
@@ -180,7 +186,7 @@ Ptr<Ipv6Route> RoutingProtocol::RouteOutput (Ptr< Packet > p,
     // many Unix variants.
     // So, we just log it and fall through to LookupStatic ()
     NS_LOG_LOGIC ("RouteOutput (): Multicast destination");
-  }
+  }*/
   rtentry = Lookup (destination, true, oif);
   if (rtentry)
   {
@@ -254,36 +260,123 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
     return;
   }
 
-  Ipv6Header ipv6;
-  packet->RemoveHeader (ipv6);
-  NS_ABORT_MSG_UNLESS (ipv6.GetNextHeader () == Ipv6Header::IPV6_ICMPV6, "The received Packet is not an ICMPv6 packet");
+  Ipv6Header ipv6Header;
+  packet->RemoveHeader (ipv6Header);
+  NS_ABORT_MSG_UNLESS (ipv6Header.GetNextHeader () == Ipv6Header::IPV6_ICMPV6, "The received Packet is not an ICMPv6 packet");
   RplIcmpv6Header rplIcmpv6Header;
 
   packet->RemoveHeader (rplIcmpv6Header);
   NS_ABORT_MSG_UNLESS (rplIcmpv6Header.GetType () == 155, "Received ICMPv6 Message with type other than 155");
-switch (rplIcmpv6Header.GetCode ())
-    {
+  switch (rplIcmpv6Header.GetCode ())
+  {
     case TYPE_DIS:
-      NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< rplIcmpv6Header.GetCode ());
+      //NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< +rplIcmpv6Header.GetCode ());
+      ReceiveDis (packet, ipv6Header);
       break;
     case TYPE_DIO:
-      NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< rplIcmpv6Header.GetCode ());
-      /*DioHeader dioHeader;
-      packet->RemoveHeader (dioHeader);*/
+      ReceiveDio (packet, ipv6Header);
       break;
     case TYPE_DAO:
-      NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< rplIcmpv6Header.GetCode ());
+      NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< +rplIcmpv6Header.GetCode ());
       break;
     case TYPE_DAO_ACK:
-      NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< rplIcmpv6Header.GetCode ());
+      NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< +rplIcmpv6Header.GetCode ());
       break;
     case TYPE_CC:
-      NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< rplIcmpv6Header.GetCode ());
+      NS_ABORT_MSG ("TODO add what to do upon receiving base message with code "<< +rplIcmpv6Header.GetCode ());
       break;
     default:
-      NS_ABORT_MSG ("Unrecognised base message code");
-    }
+      NS_ABORT_MSG ("Receiving base message with the invalid code " << +rplIcmpv6Header.GetCode ());
+  }
 }
+
+void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
+{
+  DisHeader disHeader;
+  uint16_t payloadLength;
+
+  packet->RemoveHeader (disHeader);
+  payloadLength = ipv6Header.GetPayloadLength () - 4 - disHeader.GetSerializedSize ();
+
+  NS_LOG_UNCOND ("ipv6Header: " << ipv6Header);
+
+  while (payloadLength > 0)
+  {
+    RplHeaderOption option;
+    packet->RemoveHeader (option);
+    payloadLength -= option.GetSerializedSize ();
+    switch (option.GetType ())
+    {
+    case OPTION_TYPE_PAD1:
+      break;
+    case OPTION_TYPE_PADN:
+      break;
+    case OPTION_TYPE_SOLICITED_INFORMATION:
+      //TODO add stuff here
+      NS_ABORT_MSG ("TODO add what to do when receiving DIS with SI option");
+      break;
+    default:
+      NS_ABORT_MSG ("Receiving option with the invalid type " << +option.GetType ());
+      break;
+    }
+  }
+  
+  NS_ABORT_MSG ("TODO add what to do when receiving DIS message!");
+  //TODO uncomment and check weather options are present
+  //m_trickleTimer.Reset ();
+}
+
+void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header)
+{
+  DioHeader dioHeader;
+  uint16_t payloadLength;
+
+  packet->RemoveHeader (dioHeader);
+  payloadLength = ipv6Header.GetPayloadLength () - 4 - dioHeader.GetSerializedSize ();
+
+  if (!m_receivedDio)
+  {
+    m_receivedDio = true;
+    if (m_disMessageTimer.IsRunning ())
+    {
+      m_disMessageTimer.Suspend ();
+    }
+  }
+
+  while (payloadLength > 0)
+  {
+    RplHeaderOption option;
+    packet->RemoveHeader (option);
+    payloadLength -= option.GetSerializedSize ();
+    switch (option.GetType ())
+    {
+    case OPTION_TYPE_PAD1:
+      break;
+    case OPTION_TYPE_PADN:
+      break;
+    case OPTION_TYPE_DAG_METRIC_CONTAINER:
+      NS_ABORT_MSG ("TODO add what to do when receiving DIO with DAG_METRIC_CONTAINER option");
+      break;
+    case OPTION_TYPE_ROUTING_INFORMATION:
+      NS_ABORT_MSG ("TODO add what to do when receiving DIO with ROUTING_INFORMATION option");
+      break;
+    case OPTION_TYPE_DODAG_CONFIGURATION:
+      NS_ABORT_MSG ("TODO add what to do when receiving DIO with DODAG CONFIG option");
+      break;
+    case OPTION_TYPE_PREFIX_INFORMATION:
+      NS_ABORT_MSG ("TODO add what to do when receiving DIO with PI option");
+      break;
+    default:
+      NS_ABORT_MSG ("Receiving option with the invalid type " << +option.GetType ());
+      break;
+    }
+  }
+
+  NS_ABORT_MSG ("TODO add what to do when receiving DIO message!");
+
+}
+
+
 
 void RoutingProtocol::NotifyInterfaceUp (uint32_t interface)
 {
@@ -326,7 +419,6 @@ void RoutingProtocol::NotifyInterfaceDown (uint32_t interface)
       break;
     }
   }
-
 }
 void RoutingProtocol::NotifyAddAddress (uint32_t interface, Ipv6InterfaceAddress address)
 {}
@@ -446,6 +538,44 @@ void RoutingProtocol::ExpireTimer (void)
   //sendRplPacket(createDio(), DIO, Ipv6Address::ALL_NODES_1, uniform(0, 1));
   m_trickleTimer.Stop ();
 }
+
+void RoutingProtocol::DisExpireTimer (void)
+{
+  NS_LOG_FUNCTION (this);
+  if (!m_receivedDio)
+  {
+    if (m_disMessageCounter < m_numberOfDisMessages)
+    {
+      m_disMessageCounter++;
+
+      // send DIS
+      NS_LOG_LOGIC ("RPL: Send DIS Broadcast due to DIS Timer expiration");
+      Ptr<Packet> packet = Create<Packet> ();
+      DisHeader disHeader;
+      RplIcmpv6Header rplIcmpv6Header (TYPE_DIS);
+
+      packet->AddHeader (disHeader);
+      packet->AddHeader (rplIcmpv6Header);
+
+      for (SocketListI iter = m_unicastSocketList.begin (); iter != m_unicastSocketList.end (); iter++ )
+      {
+        uint32_t interface = iter->second;
+
+        if (m_interfaceExclusions.find (interface) == m_interfaceExclusions.end ())
+        {
+          NS_LOG_DEBUG ("SendTo: " << +packet);
+          iter->first->SendTo (packet, 0, Inet6SocketAddress (RPL_ALL_NODE));
+        }
+      }
+
+      m_disMessageTimer.Schedule ();
+
+    }else{
+      InitRoot ();
+    }
+  }
+}
+
 
 }
 }
