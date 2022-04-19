@@ -42,50 +42,55 @@ TypeId RplHeaderOption::GetTypeId ()
   return tid;
 }
 
-  uint8_t RplHeaderOption::GetType ()
-  {
-    return m_type;
-  }
-  uint8_t RplHeaderOption::GetOptionLength ()
-  {
-    return m_optionLength;
-  }
+TypeId RplHeaderOption::GetInstanceTypeId () const
+{
+  return GetTypeId ();
+}
+
+uint8_t RplHeaderOption::GetType ()
+{
+  return m_type;
+}
+uint8_t RplHeaderOption::GetOptionLength ()
+{
+  return m_optionLength;
+}
 
 
-void RplHeaderOption::Print (std::ostream &os)
+void RplHeaderOption::Print (std::ostream &os) const
 {
   os << "RplHeaderOption:" << std::endl;
 
   switch (m_type)
   {
-    case PAD1:
+    case OPTION_TYPE_PAD1:
       os << "type: PAD1" << std::endl;
       break;
-    case PADN:
+    case OPTION_TYPE_PADN:
       os << "type: PADN" << std::endl;
       break;
-    case DAG_METRIC_CONTAINER:
+    case OPTION_TYPE_DAG_METRIC_CONTAINER:
       os << "type: DAG_METRIC_CONTAINER" << std::endl;
       break;
-    case ROUTING_INFORMATION:
+    case OPTION_TYPE_ROUTING_INFORMATION:
       os << "type: ROUTING_INFORMATION" << std::endl;
       break;
-    case DODAG_CONFIGURATION:
+    case OPTION_TYPE_DODAG_CONFIGURATION:
       os << "type: DODAG_CONFIGURATION" << std::endl;
       break;
-    case RPL_TARGET:
+    case OPTION_TYPE_RPL_TARGET:
       os << "type: RPL_TARGET" << std::endl;
       break;
-    case TRANSIT_INFORMATION:
+    case OPTION_TYPE_TRANSIT_INFORMATION:
       os << "type: TRANSIT_INFORMATION" << std::endl;
       break;
-    case SOLICITED_INFORMATION:
+    case OPTION_TYPE_SOLICITED_INFORMATION:
       os << "type: SOLICITED_INFORMATION" << std::endl;
       break;
-    case PREFIX_INFORMATION:
+    case OPTION_TYPE_PREFIX_INFORMATION:
       os << "type: PREFIX_INFORMATION" << std::endl;
       break;
-    case RPL_TARGET_DESCRIPTOR:
+    case OPTION_TYPE_RPL_TARGET_DESCRIPTOR:
       os << "type: RPL_TARGET_DESCRIPTOR" << std::endl;
       break;
     default:
@@ -96,34 +101,34 @@ void RplHeaderOption::Print (std::ostream &os)
 
   switch (m_type)
     {
-    case PAD1:
+    case OPTION_TYPE_PAD1:
       // print nothing
       break;
-    case PADN:
+    case OPTION_TYPE_PADN:
       m_option.padN.Print (os);
       break;
-    case DAG_METRIC_CONTAINER:
+    case OPTION_TYPE_DAG_METRIC_CONTAINER:
       m_option.dagMetricContainer.Print (os);
       break;
-    case ROUTING_INFORMATION:
+    case OPTION_TYPE_ROUTING_INFORMATION:
       m_option.routeInformation.Print (os);
       break;
-    case DODAG_CONFIGURATION:
+    case OPTION_TYPE_DODAG_CONFIGURATION:
       m_option.dodagConfiguration.Print (os);
       break;
-    case RPL_TARGET:
+    case OPTION_TYPE_RPL_TARGET:
       m_option.rplTarget.Print (os);
       break;
-    case TRANSIT_INFORMATION:
+    case OPTION_TYPE_TRANSIT_INFORMATION:
       m_option.transitInformation.Print (os);
       break;
-    case SOLICITED_INFORMATION:
+    case OPTION_TYPE_SOLICITED_INFORMATION:
       m_option.solicitedInformation.Print (os);
       break;
-    case PREFIX_INFORMATION:
+    case OPTION_TYPE_PREFIX_INFORMATION:
       m_option.prefixInformation.Print (os);
       break;
-    case RPL_TARGET_DESCRIPTOR:
+    case OPTION_TYPE_RPL_TARGET_DESCRIPTOR:
       m_option.rplTargetDescriptor.Print (os);
       break;
     default:
@@ -149,34 +154,34 @@ void RplHeaderOption::Serialize (Buffer::Iterator start) const
 
   switch (m_type)
     {
-    case PAD1:
+    case OPTION_TYPE_PAD1:
       // do nothing
       break;
-    case PADN:
+    case OPTION_TYPE_PADN:
       m_option.padN.Serialize (i);
       break;
-    case DAG_METRIC_CONTAINER:
+    case OPTION_TYPE_DAG_METRIC_CONTAINER:
       m_option.dagMetricContainer.Serialize (i);
       break;
-    case ROUTING_INFORMATION:
+    case OPTION_TYPE_ROUTING_INFORMATION:
       m_option.routeInformation.Serialize (i);
       break;
-    case DODAG_CONFIGURATION:
+    case OPTION_TYPE_DODAG_CONFIGURATION:
       m_option.dodagConfiguration.Serialize (i);
       break;
-    case RPL_TARGET:
+    case OPTION_TYPE_RPL_TARGET:
       m_option.rplTarget.Serialize (i);
       break;
-    case TRANSIT_INFORMATION:
+    case OPTION_TYPE_TRANSIT_INFORMATION:
       m_option.transitInformation.Serialize (i);
       break;
-    case SOLICITED_INFORMATION:
+    case OPTION_TYPE_SOLICITED_INFORMATION:
       m_option.solicitedInformation.Serialize (i);
       break;
-    case PREFIX_INFORMATION:
+    case OPTION_TYPE_PREFIX_INFORMATION:
       m_option.prefixInformation.Serialize (i);
       break;
-    case RPL_TARGET_DESCRIPTOR:
+    case OPTION_TYPE_RPL_TARGET_DESCRIPTOR:
       m_option.rplTargetDescriptor.Serialize (i);
       break;
     default:
@@ -195,34 +200,34 @@ uint32_t RplHeaderOption::Deserialize (Buffer::Iterator start)
 
   switch (m_type)
     {
-    case PAD1:
+    case OPTION_TYPE_PAD1:
       // do nothing
       break;
-    case PADN:
+    case OPTION_TYPE_PADN:
       // do nothing
       break;
-    case DAG_METRIC_CONTAINER:
+    case OPTION_TYPE_DAG_METRIC_CONTAINER:
       m_option.dagMetricContainer.Deserialize (i, m_optionLength);
       break;
-    case ROUTING_INFORMATION:
+    case OPTION_TYPE_ROUTING_INFORMATION:
       m_option.routeInformation.Deserialize (i, m_optionLength);
       break;
-    case DODAG_CONFIGURATION:
+    case OPTION_TYPE_DODAG_CONFIGURATION:
       m_option.dodagConfiguration.Deserialize (i, m_optionLength);
       break;
-    case RPL_TARGET:
+    case OPTION_TYPE_RPL_TARGET:
       m_option.rplTarget.Deserialize (i, m_optionLength);
       break;
-    case TRANSIT_INFORMATION:
+    case OPTION_TYPE_TRANSIT_INFORMATION:
       m_option.transitInformation.Deserialize (i, m_optionLength);
       break;
-    case SOLICITED_INFORMATION:
+    case OPTION_TYPE_SOLICITED_INFORMATION:
       m_option.solicitedInformation.Deserialize (i, m_optionLength);
       break;
-    case PREFIX_INFORMATION:
+    case OPTION_TYPE_PREFIX_INFORMATION:
       m_option.prefixInformation.Deserialize (i, m_optionLength);
       break;
-    case RPL_TARGET_DESCRIPTOR:
+    case OPTION_TYPE_RPL_TARGET_DESCRIPTOR:
       m_option.rplTargetDescriptor.Deserialize (i, m_optionLength);
       break;
     default:

@@ -32,23 +32,23 @@ namespace rpl {
 
 enum OptionType_e : uint8_t 
 {
-  PAD1=0,
-  PADN=1,
-  DAG_METRIC_CONTAINER=2,
-  ROUTING_INFORMATION=3,
-  DODAG_CONFIGURATION=4,
-  RPL_TARGET=5,
-  TRANSIT_INFORMATION=6,
-  SOLICITED_INFORMATION=7,
-  PREFIX_INFORMATION=8,
-  RPL_TARGET_DESCRIPTOR=9
+  OPTION_TYPE_PAD1=0,
+  OPTION_TYPE_PADN=1,
+  OPTION_TYPE_DAG_METRIC_CONTAINER=2,
+  OPTION_TYPE_ROUTING_INFORMATION=3,
+  OPTION_TYPE_DODAG_CONFIGURATION=4,
+  OPTION_TYPE_RPL_TARGET=5,
+  OPTION_TYPE_TRANSIT_INFORMATION=6,
+  OPTION_TYPE_SOLICITED_INFORMATION=7,
+  OPTION_TYPE_PREFIX_INFORMATION=8,
+  OPTION_TYPE_RPL_TARGET_DESCRIPTOR=9
 };
 
 /**
  * \ingroup rpl
  * \brief   RPL header options field
  */
-class RplHeaderOption : public Object
+class RplHeaderOption : public Header
 {
 public:
   /**
@@ -67,11 +67,13 @@ public:
    * \return the object TypeId
    */
   static TypeId GetTypeId (void);
-  void Print();
-  void Print(std::ostream &os);
+  TypeId GetInstanceTypeId () const;
+  void Print ();
+  void Print (std::ostream &os) const;
   uint32_t GetSerializedSize (void) const;
   void Serialize (Buffer::Iterator start) const;
   uint32_t Deserialize (Buffer::Iterator start);
+
   
 
   void SetPad1 ();
@@ -637,7 +639,7 @@ public:
  */
 const DagMetricContainer& GetDagMetricContainer () const
 {
-  NS_ASSERT (m_type == DAG_METRIC_CONTAINER);
+  NS_ASSERT (m_type == OPTION_TYPE_DAG_METRIC_CONTAINER);
   return m_option.dagMetricContainer;
 }
 
@@ -647,7 +649,7 @@ const DagMetricContainer& GetDagMetricContainer () const
  */
 const RouteInformation& GetRouteInformation () const
 {
-  NS_ASSERT (m_type == ROUTING_INFORMATION);
+  NS_ASSERT (m_type == OPTION_TYPE_ROUTING_INFORMATION);
   return m_option.routeInformation;
 }
 
@@ -657,7 +659,7 @@ const RouteInformation& GetRouteInformation () const
  */
 const DodagConfiguration& GetDodagConfiguration () const
 {
-  NS_ASSERT (m_type == DODAG_CONFIGURATION);
+  NS_ASSERT (m_type == OPTION_TYPE_DODAG_CONFIGURATION);
   return m_option.dodagConfiguration;
 }
 
@@ -667,7 +669,7 @@ const DodagConfiguration& GetDodagConfiguration () const
  */
 const RplTarget& GetRplTarget () const
 {
-  NS_ASSERT (m_type == RPL_TARGET);
+  NS_ASSERT (m_type == OPTION_TYPE_RPL_TARGET);
   return m_option.rplTarget;
 }
 
@@ -677,7 +679,7 @@ const RplTarget& GetRplTarget () const
  */
 const TransitInformation& GetTransitInformation () const
 {
-  NS_ASSERT (m_type == TRANSIT_INFORMATION);
+  NS_ASSERT (m_type == OPTION_TYPE_TRANSIT_INFORMATION);
   return m_option.transitInformation;
 }
 
@@ -687,7 +689,7 @@ const TransitInformation& GetTransitInformation () const
  */
 const SolicitedInformation& GetSolicitedInformation () const
 {
-  NS_ASSERT (m_type == SOLICITED_INFORMATION);
+  NS_ASSERT (m_type == OPTION_TYPE_SOLICITED_INFORMATION);
   return m_option.solicitedInformation;
 }
 
@@ -697,7 +699,7 @@ const SolicitedInformation& GetSolicitedInformation () const
  */
 const PrefixInformation& GetPrefixInformation () const
 {
-  NS_ASSERT (m_type == PREFIX_INFORMATION);
+  NS_ASSERT (m_type == OPTION_TYPE_PREFIX_INFORMATION);
   return m_option.prefixInformation;
 }
 
@@ -707,7 +709,7 @@ const PrefixInformation& GetPrefixInformation () const
  */
 const RplTargetDescriptor& GetRplTargetDescriptor () const
 {
-  NS_ASSERT (m_type == RPL_TARGET_DESCRIPTOR);
+  NS_ASSERT (m_type == OPTION_TYPE_RPL_TARGET_DESCRIPTOR);
   return m_option.rplTargetDescriptor;
 }
 
