@@ -106,7 +106,7 @@ public:
   uint32_t Deserialize (Buffer::Iterator start);
   void Print (std::ostream &os) const;
 
-  uint8_t GetFlags();
+  uint8_t GetFlags() const;
   void SetFlags(uint8_t flags);
 private:
   uint8_t m_flags;
@@ -187,7 +187,7 @@ public:
    * \brief Get the Rpl Instance Id
    * \return the Rpl Instance Id
    */
-  uint8_t GetRplInstanceId ()
+  uint8_t GetRplInstanceId () const
   {
     return m_rplInstanceId;
   }
@@ -203,7 +203,7 @@ public:
    * \brief Get the Version Number
    * \return the Version Number
    */
-  uint8_t GetVersionNumber ()
+  uint8_t GetVersionNumber () const
   {
     return m_versionNumber;
   }
@@ -219,7 +219,7 @@ public:
    * \brief Get the Rank
    * \return the Rank
    */
-  uint16_t GetRank ()
+  uint16_t GetRank () const
   {
     return m_rank;
   }
@@ -236,7 +236,7 @@ public:
    * \brief Get the Grounded
    * \return the Grounded
    */
-  uint8_t GetGrounded ()
+  uint8_t GetGrounded () const
   {
     return m_grounded;
   }
@@ -253,7 +253,7 @@ public:
    * \brief Get the Mop
    * \return the Mop
    */
-  uint8_t GetMop ()
+  uint8_t GetMop () const
   {
     return m_mop;
   }
@@ -270,7 +270,7 @@ public:
    * \brief Get the Prf
    * \return the Prf
    */
-  uint8_t GetPrf ()
+  uint8_t GetPrf () const
   {
     return m_prf;
   }
@@ -286,7 +286,7 @@ public:
    * \brief Get the Dtsn
    * \return the Dtsn
    */
-  uint8_t GetDtsn ()
+  uint8_t GetDtsn () const
   {
     return m_dtsn;
   }
@@ -302,7 +302,7 @@ public:
    * \brief Get the Flags
    * \return the Flags
    */
-  uint8_t GetFlags ()
+  uint8_t GetFlags () const
   {
     return m_flags;
   }
@@ -318,7 +318,7 @@ public:
    * \brief Get the Reserved
    * \return the Reserved
    */
-  uint8_t GetReserved ()
+  uint8_t GetReserved () const
   {
     return m_reserved;
   }
@@ -334,7 +334,7 @@ public:
    * \brief Get the Dodag Id
    * \return the Dodag Id
    */
-  Ipv6Address GetDodagId ()
+  Ipv6Address GetDodagId () const
   {
     return m_dodagId;
   }
@@ -415,7 +415,7 @@ public:
    * \brief Get the Rpl Instance Id
    * \return the Rpl Instance Id
    */
-  uint8_t GetRplInstanceId ()
+  uint8_t GetRplInstanceId () const
   {
     return m_rplInstanceId;
   }
@@ -432,7 +432,7 @@ public:
    * \brief Get the K
    * \return the K
    */
-  uint8_t GetK ()
+  uint8_t GetK () const
   {
     return m_k;
   }
@@ -449,7 +449,7 @@ public:
    * \brief Get the D
    * \return the D
    */
-  uint8_t GetD ()
+  uint8_t GetD () const
   {
     return m_d;
   }
@@ -466,7 +466,7 @@ public:
    * \brief Get the Flags
    * \return the Flags
    */
-  uint8_t GetFlags ()
+  uint8_t GetFlags () const
   {
     return m_flags;
   }
@@ -482,7 +482,7 @@ public:
    * \brief Get the Reserved
    * \return the Reserved
    */
-  uint8_t GetReserved ()
+  uint8_t GetReserved () const
   {
     return m_reserved;
   }
@@ -498,7 +498,7 @@ public:
    * \brief Get the Dao Sequence
    * \return the Dao Sequence
    */
-  uint8_t GetDaoSequence ()
+  uint8_t GetDaoSequence () const
   {
     return m_daoSequence;
   }
@@ -514,7 +514,7 @@ public:
    * \brief Get the Dodag Id
    * \return the Dodag Id
    */
-  Ipv6Address GetDodagId ()
+  Ipv6Address GetDodagId () const
   {
     return m_dodagId;
   }
@@ -591,7 +591,7 @@ public:
    * \brief Get the Rpl Instance Id
    * \return the Rpl Instance Id
    */
-  uint8_t GetRplInstanceId ()
+  uint8_t GetRplInstanceId () const
   {
     return m_rplInstanceId;
   }
@@ -608,7 +608,7 @@ public:
    * \brief Get the D
    * \return the D
    */
-  uint8_t GetD ()
+  uint8_t GetD () const
   {
     return m_d;
   }
@@ -625,7 +625,7 @@ public:
    * \brief Get the Reserved
    * \return the Reserved
    */
-  uint8_t GetReserved ()
+  uint8_t GetReserved () const
   {
     return m_reserved;
   }
@@ -641,7 +641,7 @@ public:
    * \brief Get the Dao Sequence
    * \return the Dao Sequence
    */
-  uint8_t GetDaoSequence ()
+  uint8_t GetDaoSequence () const
   {
     return m_daoSequence;
   }
@@ -657,7 +657,7 @@ public:
    * \brief Get the Status
    * \return the Status
    */
-  uint8_t GetStatus ()
+  uint8_t GetStatus () const
   {
     return m_status;
   }
@@ -673,7 +673,7 @@ public:
    * \brief Get the Dodag Id
    * \return the Dodag Id
    */
-  Ipv6Address GetDodagId ()
+  Ipv6Address GetDodagId () const
   {
     return m_dodagId;
   }
@@ -755,7 +755,7 @@ public:
    * \brief Get the Rpl Instance Id
    * \return the Rpl Instance Id
    */
-  uint8_t GetRplInstanceId ()
+  uint8_t GetRplInstanceId () const
   {
     return m_rplInstanceId;
   }
@@ -772,7 +772,7 @@ public:
    * \brief Get the R
    * \return the R
    */
-  uint8_t GetR ()
+  uint8_t GetR () const
   {
     return m_r;
   }
@@ -789,7 +789,7 @@ public:
    * \brief Get the Flags
    * \return the Flags
    */
-  uint8_t GetFlags ()
+  uint8_t GetFlags () const
   {
     return m_flags;
   }
@@ -805,7 +805,7 @@ public:
    * \brief Get the Cc Nonce
    * \return the Cc Nonce
    */
-  uint16_t GetCcNonce ()
+  uint16_t GetCcNonce () const
   {
     return m_ccNonce;
   }
@@ -821,7 +821,7 @@ public:
    * \brief Get the Dodag Id
    * \return the Dodag Id
    */
-  Ipv6Address GetDodagId ()
+  Ipv6Address GetDodagId () const
   {
     return m_dodagId;
   }
@@ -837,7 +837,7 @@ public:
    * \brief Get the Destination Counter
    * \return the Destination Counter
    */
-  uint32_t GetDestinationCounter ()
+  uint32_t GetDestinationCounter () const
   {
     return m_destinationCounter;
   }

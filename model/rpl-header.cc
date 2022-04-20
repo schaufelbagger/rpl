@@ -107,7 +107,7 @@ void DisHeader::Print (std::ostream &os) const
   //  option.Print (os);
 }
 
-uint8_t DisHeader::GetFlags ()
+uint8_t DisHeader::GetFlags () const
 {
   return this->m_flags;
 }
