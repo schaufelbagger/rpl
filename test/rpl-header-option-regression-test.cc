@@ -97,7 +97,7 @@ void RplHeaderOptionRegressionTest::RouteInformationTest ()
   std::vector<uint8_t> inputData;
   std::vector<uint8_t> outputData;
   uint8_t rawPrefix[16];
-  uint8_t flags = 0b00011000; 
+  uint8_t prf = 0b11; 
   uint32_t routeLifetime = 0x01020304;
 
   unsigned long expectedDataSize;
@@ -120,7 +120,7 @@ void RplHeaderOptionRegressionTest::RouteInformationTest ()
   
   //std::cout << "Prefix Length: " << unsigned(objectPrefix.GetPrefixLength ()) << std::endl;
 
-  inputOption.SetRouteInformation (flags, routeLifetime, objectPrefix);
+  inputOption.SetRouteInformation (prf, routeLifetime, objectPrefix);
 
   buffer.AddAtStart (inputOption.GetSerializedSize ());
 
@@ -132,7 +132,7 @@ void RplHeaderOptionRegressionTest::RouteInformationTest ()
 
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetType (), 0x03, "Type does not match");
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetOptionLength (), +expectedDataSize, "Option length does not match");
-  NS_TEST_ASSERT_MSG_EQ (+outputRouteInformation.flags, +flags, "Flag field differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputRouteInformation.prf, +prf, "Prf field differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputRouteInformation.prefixLength, +prefixLengthBits, "Prefix Length field differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputRouteInformation.routeLifetime, +routeLifetime, "Route Lifetime field differs from input");
   NS_TEST_ASSERT_MSG_EQ (outputRouteInformation.prefix, objectPrefix, "Prefix differs from input");
@@ -144,7 +144,7 @@ void RplHeaderOptionRegressionTest::DodagConfigurationTest ()
   RplHeaderOption outputOption;
   Buffer buffer;
   std::vector<uint8_t> inputData;
-  uint8_t flags = 0b00000000 | DEFAULT_PATH_CONTROL_SIZE;
+  uint8_t pcs = 0b101 | DEFAULT_PATH_CONTROL_SIZE;
   uint8_t dioIntervalDoublings = DEFAULT_DIO_INTERVAL_DOUBLINGS;
   uint8_t dioIntervalMin = DEFAULT_DIO_INTERVAL_MIN;
   uint8_t dioRedundancyConstant = DEFAULT_DIO_REDUNDANCY_CONSTANT;
@@ -155,7 +155,7 @@ void RplHeaderOptionRegressionTest::DodagConfigurationTest ()
   uint16_t lifetimeUnit = 1;
 
 
-  inputOption.SetDodagConfiguration(flags, dioIntervalDoublings, dioIntervalMin, dioRedundancyConstant, maxRankIncrease, minHopRankIncrease, ocp, defaultLifetime, lifetimeUnit);
+  inputOption.SetDodagConfiguration(pcs, dioIntervalDoublings, dioIntervalMin, dioRedundancyConstant, maxRankIncrease, minHopRankIncrease, ocp, defaultLifetime, lifetimeUnit);
 
   buffer.AddAtStart (inputOption.GetSerializedSize ());
 
@@ -166,11 +166,13 @@ void RplHeaderOptionRegressionTest::DodagConfigurationTest ()
   
   inputOption.Serialize (buffer.Begin ());
   outputOption.Deserialize (buffer.Begin ());
-  /*const RplHeaderOption::DodagConfiguration &outputDodagConfiguration = outputOption.GetDodagConfiguration ();
+  const RplHeaderOption::DodagConfiguration &outputDodagConfiguration = outputOption.GetDodagConfiguration ();
 
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetType (), 0x04, "type does not match");
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetOptionLength (), 14, "option length does not match");
-  NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.flags, +flags, "flags differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.flags, 0, "Flags is not zero");
+  NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.a, 0, "Authentification Enabled is not zero");
+  NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.pcs, +pcs, "Path Control Size differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.dioIntervalDoublings, +dioIntervalDoublings, "dioIntervalDoublings differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.dioIntervalMin, +dioIntervalMin, "dioIntervalMin differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.dioRedundancyConstant, +dioRedundancyConstant, "dioRedundancyConstant differs from input");
@@ -178,7 +180,7 @@ void RplHeaderOptionRegressionTest::DodagConfigurationTest ()
   NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.minHopRankIncrease, +minHopRankIncrease, "minHopRankIncrease differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.ocp, +ocp, "ocp differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.defaultLifetime, +defaultLifetime, "defaultLifetime differs from input");
-  NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.lifetimeUnit, +lifetimeUnit, "lifetimeUnit differs from input");*/
+  NS_TEST_ASSERT_MSG_EQ (+outputDodagConfiguration.lifetimeUnit, +lifetimeUnit, "lifetimeUnit differs from input");
 }
 
 void RplHeaderOptionRegressionTest::RplTargetTest ()
@@ -235,13 +237,13 @@ void RplHeaderOptionRegressionTest::TransitInformationTest ()
   Buffer buffer;
   RplHeaderOption inputOption;
   RplHeaderOption outputOption;
-  uint8_t flags = 0b10000000;
+  uint8_t e = 1;
   uint8_t pathControl = 1;
   uint8_t pathSequence = 1;
   uint8_t pathLifetime = 1;
   Ipv6Address parentAddress;
 
-  inputOption.SetTransitInformation(flags, pathControl, pathSequence, pathLifetime, parentAddress);
+  inputOption.SetTransitInformation(e, pathControl, pathSequence, pathLifetime, parentAddress);
 
   buffer.AddAtStart (inputOption.GetSerializedSize ());
 
@@ -251,7 +253,8 @@ void RplHeaderOptionRegressionTest::TransitInformationTest ()
 
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetType (), 0x06, "type does not match");
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetOptionLength (), 20, "option length does not match");
-  NS_TEST_ASSERT_MSG_EQ (+outputTransitInformation.flags, +flags, "flags differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputTransitInformation.flags, 0, "flags is not zero");
+  NS_TEST_ASSERT_MSG_EQ (+outputTransitInformation.e, +e, "External flag differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputTransitInformation.pathControl, +pathControl, "pathControl differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputTransitInformation.pathSequence, +pathSequence, "pathSequence differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputTransitInformation.pathLifetime, +pathLifetime, "pathLifetime differs from input");
@@ -263,12 +266,15 @@ void RplHeaderOptionRegressionTest::SolicitedInformationTest ()
   Buffer buffer;
   RplHeaderOption inputOption;
   RplHeaderOption outputOption;
-  uint8_t flags = 0b10100000;
+  uint8_t v = 1;
+  uint8_t i = 1;
+  uint8_t d = 1;
+  uint8_t flags = 0;
   uint8_t rplInstanceId = 1;
   uint8_t versionNumber = 1;
   Ipv6Address dodagId = Ipv6Address ("2001:db8::1");
 
-  inputOption.SetSolicitedInformation (rplInstanceId, flags, dodagId, versionNumber);
+  inputOption.SetSolicitedInformation (rplInstanceId, v, i, d, flags, dodagId, versionNumber);
 
   buffer.AddAtStart (inputOption.GetSerializedSize ());
 
@@ -279,7 +285,10 @@ void RplHeaderOptionRegressionTest::SolicitedInformationTest ()
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetType (), 0x07, "type does not match");
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetOptionLength (), 19, "option length does not match");
   NS_TEST_ASSERT_MSG_EQ (+outputSolicitedInformation.rplInstanceId, +rplInstanceId, "RPL Instance ID differs from input");
-  NS_TEST_ASSERT_MSG_EQ (+outputSolicitedInformation.flags, +flags, "Flags differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputSolicitedInformation.v, +v, "V flag differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputSolicitedInformation.i, +i, "I flag differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputSolicitedInformation.d, +d, "D flag differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputSolicitedInformation.flags, 0, "Flags differs from zero");
   NS_TEST_ASSERT_MSG_EQ (outputSolicitedInformation.dodagId, dodagId, "DODAG ID differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputSolicitedInformation.versionNumber, +versionNumber, "Version Number differs from input");
 }
@@ -289,13 +298,15 @@ void RplHeaderOptionRegressionTest::PrefixInformationTest ()
   Buffer buffer;
   RplHeaderOption inputOption;
   RplHeaderOption outputOption;
-  uint8_t flags = 0b10100000;
+  uint8_t l = 1;
+  uint8_t a = 1;
+  uint8_t r = 1;
   uint8_t prefixLength = 1;
   uint32_t validLifetime = 0x01020304;
   uint32_t preferredLifetime = 0x01020304;
   Ipv6Prefix prefix = Ipv6Prefix ("2001:db8::");
 
-  inputOption.SetPrefixInformation (prefixLength, flags, validLifetime, preferredLifetime, prefix);
+  inputOption.SetPrefixInformation (prefixLength, l, a, r, validLifetime, preferredLifetime, prefix);
 
   buffer.AddAtStart (inputOption.GetSerializedSize ());
 
@@ -306,7 +317,11 @@ void RplHeaderOptionRegressionTest::PrefixInformationTest ()
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetType (), 0x08, "Type does not match");
   NS_TEST_ASSERT_MSG_EQ (+outputOption.GetOptionLength (), 30, "Option length does not match");
   NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.prefixLength, +prefixLength, "Prefix Length differs from input");
-  NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.flags, +flags, "Flags differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.l, +l, "L flag differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.a, +a, "A flag differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.r, +r, "R flag differs from input");
+  NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.reserved1, 0, "Reserved1 differs from zero");
+  NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.reserved2, 0, "Reserved2 differs from zero");
   NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.validLifetime, +validLifetime, "Valid Lifetime differs from input");
   NS_TEST_ASSERT_MSG_EQ (+outputPrefixInformation.preferredLifetime, +preferredLifetime, "Preferred Lifetime differs from input");
   NS_TEST_ASSERT_MSG_EQ (outputPrefixInformation.prefix, prefix, "Version Number differs from input");

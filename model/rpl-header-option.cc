@@ -331,9 +331,10 @@ uint32_t RplHeaderOption::DagMetricContainer::Deserialize (Buffer::Iterator star
 
 // ---------------- RPL Route Information Option -------------------------------
 
-void RplHeaderOption::SetRouteInformation(uint8_t prefixLength, uint8_t flags, uint32_t routeLifetime, Ipv6Prefix prefix)
+void RplHeaderOption::SetRouteInformation(uint8_t prefixLength, uint8_t prf, uint32_t routeLifetime, Ipv6Prefix prefix)
 {
-  NS_ABORT_MSG_UNLESS((flags|0b00011000) == 0b00011000, "In RPL Header Option Route Information the flags field is set to an invalid value.");
+  //NS_ABORT_MSG_UNLESS((flags|0b00011000) == 0b00011000, "In RPL Header Option Route Information the flags field is set to an invalid value.");
+  NS_ABORT_MSG_IF(prf > 0b11, "Size of field is larger than allowed");
   uint8_t prefixLengthBits = prefixLength;
   NS_ABORT_MSG_IF(prefixLengthBits <=0, "In RPL Header Option Route Information the length of the Ipv6 Prefix was set to an invalid value.");
 
@@ -348,7 +349,9 @@ void RplHeaderOption::SetRouteInformation(uint8_t prefixLength, uint8_t flags, u
   m_optionLength = prefixLengthBytes + 2*sizeof(uint8_t) + sizeof(uint32_t);
 
   m_option.routeInformation.prefixLength = prefixLengthBits;
-  m_option.routeInformation.flags = flags;
+  m_option.routeInformation.reserved1 = 0;
+  m_option.routeInformation.prf = prf;
+  m_option.routeInformation.reserved2 = 0;
   m_option.routeInformation.routeLifetime = routeLifetime;
   m_option.routeInformation.prefix = prefix;
   
@@ -365,15 +368,15 @@ void RplHeaderOption::SetRouteInformation(uint8_t prefixLength, uint8_t flags, u
     m_data.push_back (buf[i]);
   }*/
 }
-void RplHeaderOption::SetRouteInformation (uint8_t flags, uint32_t routeLifetime, Ipv6Prefix prefix)
+void RplHeaderOption::SetRouteInformation (uint8_t prf, uint32_t routeLifetime, Ipv6Prefix prefix)
 {
-  SetRouteInformation(prefix.GetPrefixLength (), flags, routeLifetime, prefix);
+  SetRouteInformation(prefix.GetPrefixLength (), prf, routeLifetime, prefix);
 }
 
 void RplHeaderOption::RouteInformation::Print (std::ostream &os) const
 {
   os << "Prefix Length: " << +prefixLength << std::endl;
-  os << "Flags: " << std::bitset<8>(flags) << ", " << +flags << std::endl;
+  os << "Flags: " << std::bitset<8>(prf) << ", " << +prf << std::endl;
   os << "Route Lifetime: 0x" << std::hex << +routeLifetime << std::dec << ", "  << +routeLifetime << std::endl;
   prefix.Print (os);
 }
@@ -382,6 +385,7 @@ void RplHeaderOption::RouteInformation::Serialize (Buffer::Iterator start) const
 {
   Buffer::Iterator i = start;
   uint8_t buf[16];
+  uint8_t tmp =  (reserved1 << 5) | (prf << 3) | reserved2;
 
   uint8_t prefixLengthBytes = prefixLength / 8;
   if (prefixLength % 8 > 0)
@@ -390,7 +394,7 @@ void RplHeaderOption::RouteInformation::Serialize (Buffer::Iterator start) const
   }
 
   i.WriteU8 (prefixLength);
-  i.WriteU8 (flags);
+  i.WriteU8 (tmp);
   i.WriteHtonU32 (routeLifetime);
 
   prefix.GetBytes (buf);
@@ -402,11 +406,16 @@ uint32_t RplHeaderOption::RouteInformation::Deserialize (Buffer::Iterator start,
   Buffer::Iterator i = start;
   uint8_t buf[16];
   uint8_t prefixLengthBytes;
+  uint8_t tmp;
 
   std::fill(buf, buf+16, 0);
 
   prefixLength = i.ReadU8 ();
-  flags = i.ReadU8 ();
+  tmp = i.ReadU8 ();
+  reserved1 = (tmp & 0b11100000) >> 5;
+  prf = (tmp & 0b00011000) >> 3;
+  reserved2 = (tmp & 0b00000111);
+  
   routeLifetime = i.ReadNtohU32 ();
 
   prefixLengthBytes = prefixLength / 8;
@@ -425,13 +434,16 @@ uint32_t RplHeaderOption::RouteInformation::Deserialize (Buffer::Iterator start,
 
 // ---------------- RPL Dodag Configuration Option -------------------------------
 
-void RplHeaderOption::SetDodagConfiguration(uint8_t flags, uint8_t dioIntervalDoublings, uint8_t dioIntervalMin, uint8_t dioRedundancyConstant, uint16_t maxRankIncrease, uint16_t minHopRankIncrease, uint16_t ocp, uint8_t reserved, uint8_t defaultLifetime, uint16_t lifetimeUnit)
+void RplHeaderOption::SetDodagConfiguration(uint8_t pcs, uint8_t dioIntervalDoublings, uint8_t dioIntervalMin, uint8_t dioRedundancyConstant, uint16_t maxRankIncrease, uint16_t minHopRankIncrease, uint16_t ocp, uint8_t reserved, uint8_t defaultLifetime, uint16_t lifetimeUnit)
 {
-  NS_ABORT_MSG_UNLESS((flags|0b00001111) == 0b00001111, "In RPL Header Option DODAG Configuration flags field is set to an invalid value.");
+  //NS_ABORT_MSG_UNLESS((flags|0b00001111) == 0b00001111, "In RPL Header Option DODAG Configuration flags field is set to an invalid value.");
+  NS_ABORT_MSG_IF(pcs > 0b111, "Size of field is larger than allowed");
   NS_ABORT_MSG_UNLESS(reserved == 0, "In RPL Header Option DODAG Configuration reserved field is set to an invalid value.");
   m_type = 0x04;
   m_optionLength = 14;
-  m_option.dodagConfiguration.flags = flags;
+  m_option.dodagConfiguration.flags = 0;
+  m_option.dodagConfiguration.a = 0;  // no secure mode implemented so this is always zero
+  m_option.dodagConfiguration.pcs = pcs;
   m_option.dodagConfiguration.dioIntervalDoublings = dioIntervalDoublings;
   m_option.dodagConfiguration.dioIntervalMin = dioIntervalMin;
   m_option.dodagConfiguration.dioRedundancyConstant = dioRedundancyConstant;
@@ -442,13 +454,13 @@ void RplHeaderOption::SetDodagConfiguration(uint8_t flags, uint8_t dioIntervalDo
   m_option.dodagConfiguration.defaultLifetime = defaultLifetime;
   m_option.dodagConfiguration.lifetimeUnit = lifetimeUnit;
 }
-void RplHeaderOption::SetDodagConfiguration(uint8_t flags, uint8_t dioIntervalDoublings, uint8_t dioIntervalMin, uint8_t dioRedundancyConstant, uint16_t maxRankIncrease, uint16_t minHopRankIncrease, uint16_t ocp, uint8_t defaultLifetime, uint16_t lifetimeUnit)
+void RplHeaderOption::SetDodagConfiguration(uint8_t pcs, uint8_t dioIntervalDoublings, uint8_t dioIntervalMin, uint8_t dioRedundancyConstant, uint16_t maxRankIncrease, uint16_t minHopRankIncrease, uint16_t ocp, uint8_t defaultLifetime, uint16_t lifetimeUnit)
 {
-  SetDodagConfiguration(flags, dioIntervalDoublings, dioIntervalMin, dioRedundancyConstant, maxRankIncrease, minHopRankIncrease, ocp, 0, defaultLifetime, lifetimeUnit);
+  SetDodagConfiguration(pcs, dioIntervalDoublings, dioIntervalMin, dioRedundancyConstant, maxRankIncrease, minHopRankIncrease, ocp, 0, defaultLifetime, lifetimeUnit);
 }
 void RplHeaderOption::DodagConfiguration::Print (std::ostream &os) const
 {
-  os << "Flags: " << std::bitset<8>(flags) << ", " << +flags << std::endl;
+  os << "PCS: " << std::bitset<8>(pcs) << ", " << +pcs << std::endl;
   os << "DIO Interval Doublings: " << +dioIntervalDoublings << std::endl;
   os << "DIO Interval Minimum: " << +dioIntervalMin << std::endl;
   os << "DIO Redundancy Constant: " << +dioRedundancyConstant << std::endl;
@@ -461,7 +473,7 @@ void RplHeaderOption::DodagConfiguration::Print (std::ostream &os) const
 void RplHeaderOption::DodagConfiguration::Serialize (Buffer::Iterator start) const
 {
   Buffer::Iterator i = start;
-  i.WriteU8 (flags);
+  i.WriteU8 ((flags << 4) | (a << 3) | pcs);
   i.WriteU8 (dioIntervalDoublings);
   i.WriteU8 (dioIntervalMin);
   i.WriteU8 (dioRedundancyConstant);
@@ -475,8 +487,11 @@ void RplHeaderOption::DodagConfiguration::Serialize (Buffer::Iterator start) con
 uint32_t RplHeaderOption::DodagConfiguration::Deserialize (Buffer::Iterator start, uint8_t optionLength)
 {
   Buffer::Iterator i = start;
-
-  flags = i.ReadU8 ();
+  uint8_t tmp;
+  tmp = i.ReadU8 ();
+  flags = (tmp & 0b11110000) >> 4;
+  a = (tmp & 0b00001000) >> 3;
+  pcs = (tmp & 0b00000111);
   dioIntervalDoublings = i.ReadU8 ();
   dioIntervalMin = i.ReadU8 ();
   dioRedundancyConstant = i.ReadU8 ();
@@ -573,9 +588,10 @@ uint32_t RplHeaderOption::RplTarget::Deserialize (Buffer::Iterator start, uint8_
 
 // ---------------- RPL Transit Information Option -------------------------------
 
-void RplHeaderOption::SetTransitInformation (uint8_t flags, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime, Ipv6Address parentAddress)
+void RplHeaderOption::SetTransitInformation (uint8_t e, uint8_t flags, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime, Ipv6Address parentAddress)
 {
-  NS_ABORT_MSG_UNLESS((flags|0b10000000) == 0b10000000, "In RPL Header Option the flags field is set to an invalid value.");
+  NS_ABORT_MSG_IF(e > 0b1, "Size of field is larger than allowed");
+  NS_ABORT_MSG_UNLESS(flags == 0, "In RPL Header Option the flags field is set to an invalid value.");
 
   m_type = 0x06;
   m_optionLength = 4*sizeof(uint8_t);
@@ -584,19 +600,24 @@ void RplHeaderOption::SetTransitInformation (uint8_t flags, uint8_t pathControl,
     m_optionLength += 16;
   }
 
+  m_option.transitInformation.e = e;
   m_option.transitInformation.flags = flags;
   m_option.transitInformation.pathControl = pathControl;
   m_option.transitInformation.pathSequence = pathSequence;
   m_option.transitInformation.pathLifetime = pathLifetime;
   m_option.transitInformation.parentAddress = parentAddress;
 }
-void RplHeaderOption::SetTransitInformation (uint8_t flags, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime)
+void RplHeaderOption::SetTransitInformation (uint8_t e, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime, Ipv6Address parentAddress)
 {
-  SetTransitInformation (flags, pathControl, pathSequence, pathLifetime, Ipv6Address());
+  SetTransitInformation (e, 0, pathControl, pathSequence, pathLifetime, parentAddress);
+}
+void RplHeaderOption::SetTransitInformation (uint8_t e, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime)
+{
+  SetTransitInformation (e, pathControl, pathSequence, pathLifetime, Ipv6Address());
 }
 void RplHeaderOption::TransitInformation::Print (std::ostream &os) const
 {
-  os << "Flags: " << std::bitset<8>(flags) << ", " << +flags << std::endl;
+  os << "External Flag: " << +e << std::endl;
   os << "Path Control: " << +pathControl << std::endl;
   os << "Path Sequence: " << +pathSequence << std::endl;
   os << "Path Lifetime: " << +pathLifetime << std::endl;
@@ -607,7 +628,7 @@ void RplHeaderOption::TransitInformation::Serialize (Buffer::Iterator start) con
   Buffer::Iterator i = start;
   uint8_t buf[16];
 
-  i.WriteU8 (flags);
+  i.WriteU8 ( (e << 7) | flags);
   i.WriteU8 (pathControl);
   i.WriteU8 (pathSequence);
   i.WriteU8 (pathLifetime);
@@ -622,8 +643,11 @@ uint32_t RplHeaderOption::TransitInformation::Deserialize (Buffer::Iterator star
 {
   Buffer::Iterator i = start;
   uint8_t buf[16];
+  uint8_t tmp;
   
-  flags = i.ReadU8 ();
+  tmp = i.ReadU8 ();
+  e = (tmp & 0b10000000) >> 7;
+  flags = (tmp & 0b01111111);
   pathControl = i.ReadU8 ();
   pathSequence = i.ReadU8 ();
   pathLifetime = i.ReadU8 ();
@@ -641,21 +665,34 @@ uint32_t RplHeaderOption::TransitInformation::Deserialize (Buffer::Iterator star
 
 // ---------------- RPL Solicited Information Option -------------------------------
 
-void RplHeaderOption::SetSolicitedInformation (uint8_t rplInstanceId, uint8_t flags, Ipv6Address dodagId, uint8_t versionNumber)
+void RplHeaderOption::SetSolicitedInformation (uint8_t rplInstanceId, uint8_t v, uint8_t i, uint8_t d, uint8_t flags, Ipv6Address dodagId, uint8_t versionNumber)
 {
-  NS_ABORT_MSG_UNLESS((flags|0b11100000) == 0b11100000, "In RPL Header Option the flags field is set to an invalid value.");
+  NS_ABORT_MSG_IF(v > 0b1, "Size of field is larger than allowed");
+  NS_ABORT_MSG_IF(i > 0b1, "Size of field is larger than allowed");
+  NS_ABORT_MSG_IF(d > 0b1, "Size of field is larger than allowed");
+  NS_ABORT_MSG_UNLESS(flags == 0, "In RPL Header Option the flags field is set to an invalid value.");
   m_type = 0x07;
   m_optionLength = 19;
 
   m_option.solicitedInformation.rplInstanceId = rplInstanceId;
+  m_option.solicitedInformation.v = v;
+  m_option.solicitedInformation.i = i;
+  m_option.solicitedInformation.d = d;
   m_option.solicitedInformation.flags = flags;
   m_option.solicitedInformation.dodagId = dodagId;
   m_option.solicitedInformation.versionNumber = versionNumber;
 }
+void RplHeaderOption::SetSolicitedInformation (uint8_t rplInstanceId, uint8_t v, uint8_t i, uint8_t d, Ipv6Address dodagId, uint8_t versionNumber)
+{
+  SetSolicitedInformation (rplInstanceId, v, i, d, 0, dodagId, versionNumber);
+}
+
 void RplHeaderOption::SolicitedInformation::Print (std::ostream &os) const
 {
   os << "RPL Instance ID: " << +rplInstanceId << std::endl;
-  os << "Flags: " << std::bitset<8>(flags) << ", " << +flags << std::endl;
+  os << "V: " << +v << std::endl;
+  os << "I: " << +i << std::endl;
+  os << "D: " << +d << std::endl;
   dodagId.Print (os);
   os << "Version Number: " << +versionNumber << std::endl;
 }
@@ -665,7 +702,7 @@ void RplHeaderOption::SolicitedInformation::Serialize (Buffer::Iterator start) c
   uint8_t buf[16];
 
   i.WriteU8 (rplInstanceId);
-  i.WriteU8 (flags);
+  i.WriteU8 ( (v << 7) | (this->i << 6) | (d << 5) | flags);
   dodagId.Serialize (buf);
   i.Write (buf, 16);
   i.WriteU8 (versionNumber);
@@ -674,9 +711,14 @@ uint32_t RplHeaderOption::SolicitedInformation::Deserialize (Buffer::Iterator st
 {
   Buffer::Iterator i = start;
   uint8_t buf[16];
+  uint8_t tmp;
   
   rplInstanceId = i.ReadU8 ();
-  flags = i.ReadU8 ();
+  tmp = i.ReadU8 ();
+  v = (tmp & 0b10000000) >> 7;
+  this->i = (tmp & 0b01000000) >> 6;
+  d = (tmp & 0b00100000) >> 5;
+  flags = (tmp & 0b00011111);
   i.Read (buf, 16);
   dodagId = Ipv6Address(buf);
   versionNumber = i.ReadU8 ();
@@ -688,30 +730,38 @@ uint32_t RplHeaderOption::SolicitedInformation::Deserialize (Buffer::Iterator st
 
 // ---------------- RPL Prefix Information Option -------------------------------
 
-void RplHeaderOption::SetPrefixInformation (uint8_t prefixLength, uint8_t flags, uint32_t validLifetime, uint32_t preferredLifetime, uint32_t reserved2, Ipv6Prefix prefix)
+void RplHeaderOption::SetPrefixInformation (uint8_t prefixLength, uint8_t l, uint8_t a, uint8_t r, uint8_t reserved1, uint32_t validLifetime, uint32_t preferredLifetime, uint32_t reserved2, Ipv6Prefix prefix)
 {
-  NS_ABORT_MSG_UNLESS((flags|0b11100000) == 0b11100000, "In RPL Header Option the flags field is set to an invalid value.");
+  NS_ABORT_MSG_IF(l > 0b1, "Size of field is larger than allowed");
+  NS_ABORT_MSG_IF(a > 0b1, "Size of field is larger than allowed");
+  NS_ABORT_MSG_IF(r > 0b1, "Size of field is larger than allowed");
   NS_ABORT_MSG_IF(prefixLength <=0, "In RPL Header Option RPL Target the length of the Ipv6 Prefix was set to an invalid value.");
+  NS_ABORT_MSG_UNLESS(reserved1 == 0, "In RPL Header Option RPL Prefix Information reserved1 field is set to an invalid value.");
   NS_ABORT_MSG_UNLESS(reserved2 == 0, "In RPL Header Option RPL Prefix Information reserved2 field is set to an invalid value.");
   
   m_type = 0x08;
   m_optionLength = 30;
 
   m_option.prefixInformation.prefixLength = prefixLength;
-  m_option.prefixInformation.flags = flags;
+  m_option.prefixInformation.l = l;
+  m_option.prefixInformation.a = a;
+  m_option.prefixInformation.r = r;
+  m_option.prefixInformation.reserved1 = reserved1;
   m_option.prefixInformation.validLifetime = validLifetime;
   m_option.prefixInformation.preferredLifetime = preferredLifetime;
   m_option.prefixInformation.reserved2 = reserved2;
   m_option.prefixInformation.prefix = prefix;
 }
-void RplHeaderOption::SetPrefixInformation (uint8_t prefixLength, uint8_t flags, uint32_t validLifetime, uint32_t preferredLifetime, Ipv6Prefix prefix)
+void RplHeaderOption::SetPrefixInformation (uint8_t prefixLength, uint8_t l, uint8_t a, uint8_t r, uint32_t validLifetime, uint32_t preferredLifetime, Ipv6Prefix prefix)
 {
-  SetPrefixInformation (prefixLength, flags, validLifetime, preferredLifetime, 0, prefix);
+  SetPrefixInformation (prefixLength, l, a, r, 0, validLifetime, preferredLifetime, 0, prefix);
 }
 void RplHeaderOption::PrefixInformation::Print (std::ostream &os) const
 {
   os << "Prefix Length: " << +prefixLength << std::endl;
-  os << "Flags: " << std::bitset<8>(flags) << ", " << +flags << std::endl;
+  os << "On-link flag: " << +l << std::endl;
+  os << "Autonomous address-configuration flag: " << +a << std::endl;
+  os << "Router address flag: " << +r << std::endl;
   os << "Valid Lifetime: " << +validLifetime << std::endl;
   os << "Preferred Lifetime: " << +preferredLifetime << std::endl;
   prefix.Print (os);
@@ -724,7 +774,7 @@ void RplHeaderOption::PrefixInformation::Serialize (Buffer::Iterator start) cons
   std::fill(buf, buf+16, 0);
 
   i.WriteU8 (prefixLength);
-  i.WriteU8 (flags);
+  i.WriteU8 ( (l << 7) | (a << 6) | (r << 5) | reserved1);
   i.WriteHtonU32 (validLifetime);
   i.WriteHtonU32 (preferredLifetime);
   i.WriteHtonU32 (reserved2);
@@ -735,9 +785,14 @@ uint32_t RplHeaderOption::PrefixInformation::Deserialize (Buffer::Iterator start
 {
   Buffer::Iterator i = start;
   uint8_t buf[16];
+  uint8_t tmp;
   
   prefixLength = i.ReadU8 ();
-  flags = i.ReadU8 ();
+  tmp = i.ReadU8 ();
+  l = (tmp & 0b10000000) >> 7;
+  a = (tmp & 0b01000000) >> 6;
+  r = (tmp & 0b00100000) >> 5;
+  reserved1 = (tmp & 0b00011111);
   validLifetime = i.ReadNtohU32 ();
   preferredLifetime = i.ReadNtohU32 ();
   reserved2 = i.ReadNtohU32 ();

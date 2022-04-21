@@ -196,7 +196,9 @@ public:
   struct RouteInformation
   {
     uint8_t prefixLength;
-    uint8_t flags;
+    uint8_t reserved1 : 3;
+    uint8_t prf : 2;
+    uint8_t reserved2 : 3;
     uint32_t routeLifetime;
     Ipv6Prefix prefix;
     /**
@@ -231,12 +233,12 @@ public:
    * \brief Set RPL Header Options to Route Information
    * 
    * \param prefixLength length of the IPv6 prefix as the number of bits
-   * \param flags the Route Preference flag
+   * \param prf the Route Preference flag
    * \param routeLifetime the metric data
    * \param prefix the IPv6 prefix
    */
-  void SetRouteInformation(uint8_t prefixLength, uint8_t flags, uint32_t routeLifetime, Ipv6Prefix prefix);
-  void SetRouteInformation(uint8_t flags, uint32_t routeLifetime, Ipv6Prefix prefix);
+  void SetRouteInformation(uint8_t prefixLength, uint8_t prf, uint32_t routeLifetime, Ipv6Prefix prefix);
+  void SetRouteInformation(uint8_t prf, uint32_t routeLifetime, Ipv6Prefix prefix);
   
 
     /**
@@ -259,7 +261,9 @@ public:
    */
   struct DodagConfiguration
   {
-    uint8_t flags;
+    uint8_t flags : 4;
+    uint8_t a : 1;
+    uint8_t pcs : 3;
     uint8_t dioIntervalDoublings;
     uint8_t dioIntervalMin;
     uint8_t dioRedundancyConstant;
@@ -300,7 +304,8 @@ public:
   /**
    * \brief Set RPL Header Options to DODAG Configuration
    * 
-   * \param flags the Route Preference flag
+   * \param a the Authentication Enabled flag
+   * \param pcs the Path Control Size
    * \param dioIntervalDoublings the DIOIntervalDoublings
    * \param dioIntervalMin the DIOIntervalMin
    * \param dioRedundancyConstant the DIORedundancyConstant
@@ -310,8 +315,8 @@ public:
    * \param defaultLifetime the Default Lifetime
    * \param lifetimeUnit the Lifetime Unit
    */
-  void SetDodagConfiguration(uint8_t flags, uint8_t dioIntervalDoublings, uint8_t dioIntervalMin, uint8_t dioRedundancyConstant, uint16_t maxRankIncrease, uint16_t minHopRankIncrease, uint16_t ocp, uint8_t reserved, uint8_t defaultLifetime, uint16_t lifetimeUnit);
-  void SetDodagConfiguration(uint8_t flags, uint8_t dioIntervalDoublings, uint8_t dioIntervalMin, uint8_t dioRedundancyConstant, uint16_t maxRankIncrease, uint16_t minHopRankIncrease, uint16_t ocp, uint8_t defaultLifetime, uint16_t lifetimeUnit);
+  void SetDodagConfiguration(uint8_t pcs, uint8_t dioIntervalDoublings, uint8_t dioIntervalMin, uint8_t dioRedundancyConstant, uint16_t maxRankIncrease, uint16_t minHopRankIncrease, uint16_t ocp, uint8_t reserved, uint8_t defaultLifetime, uint16_t lifetimeUnit);
+  void SetDodagConfiguration(uint8_t pcs, uint8_t dioIntervalDoublings, uint8_t dioIntervalMin, uint8_t dioRedundancyConstant, uint16_t maxRankIncrease, uint16_t minHopRankIncrease, uint16_t ocp, uint8_t defaultLifetime, uint16_t lifetimeUnit);
 
   /**
    * \ingroup rpl
@@ -398,7 +403,8 @@ public:
    */
   struct TransitInformation
   {
-    uint8_t flags;
+    uint8_t e : 1;
+    uint8_t flags : 7;
     uint8_t pathControl;
     uint8_t pathSequence;
     uint8_t pathLifetime;
@@ -434,14 +440,16 @@ public:
   /**
    * \brief Set RPL Header Options to Transit Information
    * 
-   * \param flags the Route Preference flag
+   * \param e the External flag
+   * \param flags the flags field
    * \param pathControl the Path Control
    * \param pathSequence the Path Sequence
    * \param pathLifetime the Path Lifetime
    * \param parentAddress the Paranet Address, not necessarily included
    */
-  void SetTransitInformation (uint8_t flags, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime, Ipv6Address parentAddress);
-  void SetTransitInformation (uint8_t flags, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime);
+  void SetTransitInformation (uint8_t e, uint8_t flags, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime, Ipv6Address parentAddress);
+  void SetTransitInformation (uint8_t e, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime, Ipv6Address parentAddress);
+  void SetTransitInformation (uint8_t e, uint8_t pathControl, uint8_t pathSequence, uint8_t pathLifetime);
 
   /**
    * \ingroup rpl
@@ -467,7 +475,10 @@ public:
   struct SolicitedInformation
   {
     uint8_t rplInstanceId;
-    uint8_t flags;
+    uint8_t v : 1;
+    uint8_t i : 1;
+    uint8_t d : 1;
+    uint8_t flags : 5;
     Ipv6Address dodagId;
     uint8_t versionNumber;
 
@@ -503,11 +514,15 @@ public:
    * \brief Set RPL Header Options to Solicited Information
    * 
    * \param rplInstanceId the RPL Instance ID
-   * \param flags the Route Preference flag
+   * \param v the Version predicate flag
+   * \param i the InstanceID predicate flag
+   * \param d the DODAGID predicate flag
+   * \param flags remaining flag bits
    * \param dodagId the DODAG ID
    * \param versionNumber the Version Number
    */
-  void SetSolicitedInformation (uint8_t rplInstanceId, uint8_t flags, Ipv6Address dodagId, uint8_t versionNumber);
+  void SetSolicitedInformation (uint8_t rplInstanceId, uint8_t v, uint8_t i, uint8_t d, uint8_t flags, Ipv6Address dodagId, uint8_t versionNumber);
+  void SetSolicitedInformation (uint8_t rplInstanceId, uint8_t v, uint8_t i, uint8_t d, Ipv6Address dodagId, uint8_t versionNumber);
 
   /**
    * \ingroup rpl
@@ -537,7 +552,10 @@ public:
   struct PrefixInformation
   {
     uint8_t prefixLength;
-    uint8_t flags;
+    uint8_t l : 1;
+    uint8_t a : 1;
+    uint8_t r : 1;
+    uint8_t reserved1 : 5;
     uint32_t validLifetime;
     uint32_t preferredLifetime;
     uint32_t reserved2;
@@ -574,13 +592,15 @@ public:
    * \brief Set RPL Header Options to Prefix Information
    * 
    * \param prefixLength the Prefix Length
-   * \param flags the Route Preference flag
+   * \param l the on-link flag
+   * \param a the Autonomous address-configuration flag
+   * \param r the Router address flag
    * \param validLifetime the Valid Lifetime
    * \param preferredLifetime the Preferred Lifetime
    * \param prefix the Prefix
    */
-  void SetPrefixInformation (uint8_t prefixLength, uint8_t flags, uint32_t validLifetime, uint32_t preferredLifetime, uint32_t reserved2, Ipv6Prefix prefix);
-  void SetPrefixInformation (uint8_t prefixLength, uint8_t flags, uint32_t validLifetime, uint32_t preferredLifetime, Ipv6Prefix prefix);
+  void SetPrefixInformation (uint8_t prefixLength, uint8_t l, uint8_t a, uint8_t r, uint8_t reserved1, uint32_t validLifetime, uint32_t preferredLifetime, uint32_t reserved2, Ipv6Prefix prefix);
+  void SetPrefixInformation (uint8_t prefixLength, uint8_t l, uint8_t a, uint8_t r, uint32_t validLifetime, uint32_t preferredLifetime, Ipv6Prefix prefix);
 
   /**
    * \ingroup rpl
