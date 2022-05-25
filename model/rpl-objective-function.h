@@ -21,6 +21,7 @@
 #define RPL_OBJECTIVE_FUNCTION_H
 
 #include "rpl-header.h"
+#include "rpl-state.h"
 
 #include <math.h>
 
@@ -29,10 +30,24 @@ namespace rpl {
 
 
 // RPL params [RFC6550, 17]
-#define BASE_RANK 0
-#define ROOT_RANK 1
-#define INF_RANK 0xFFFF
 #define DEFAULT_MIN_HOP_RANK_INCREASE 256
+#define BASE_RANK 0
+#define ROOT_RANK DEFAULT_MIN_HOP_RANK_INCREASE
+#define INFINITE_RANK 0xFFFF
+
+
+/// OF0 defines
+#define DEFAULT_STEP_OF_RANK 1
+#define MINIMUM_STEP_OF_RANK 1
+#define MAXIMUM_STEP_OF_RANK 9
+#define DEFAULT_RANK_STRETCH 0
+#define MAXIMUM_RANK_STRETCH 5  // not used
+#define DEFAULT_RANK_FACTOR 1
+#define MINIMUM_RANK_FACTOR 1
+#define MAXIMUM_RANK_FACTOR 4
+
+enum RplObjectiveCodePoint_e : uint16_t {OF0=0, MRHOF=1};
+
 /**
  * \ingroup rpl
  * \brief   RPL objective function
@@ -40,18 +55,38 @@ namespace rpl {
 class RplObjectiveFunction
 {
 public:
-  enum RplObjectiveFunctionType_e : uint8_t {HOP_COUNT=0, METRIC=1} RplObjectiveFunctionType_t;
+
   /**
    * constructor
    *
    */
-  RplObjectiveFunction(RplObjectiveFunctionType_e type = RplObjectiveFunction::HOP_COUNT, double minHopRankIncrease = 1);
+  RplObjectiveFunction(RplObjectiveCodePoint_e type = OF0, uint16_t minHopRankIncrease = 1, uint16_t maxRankIncrease = 0);
 
-  uint16_t calculateRank ();
+
+  RplObjectiveCodePoint_e GetOcp () const
+  {
+    return m_type;
+  }
+
+  RplNode GetPreferredParent (std::set<RplNode> parents);
+  std::list<RplNode> ProvideDaoParentList (std::set<RplNode> parents);
+  void ProcessingDio (RplObjectiveCodePoint_e type, uint16_t minHopRankIncrease, uint16_t maxRankIncrease);
+  void ProvideDagInformation ();
+  void TriggeredUpdates ();
+  void CalculateRankIncrease (uint16_t minHopRankIncrease, uint16_t maxRankIncrease);
+  void CalculateRankIncrease ();
+  uint16_t CalculateRank (uint16_t preferredParentRank);
+  uint16_t DagRank(uint16_t rank);
 
 private:
-  double m_minHopRankIncrease;
-  RplObjectiveFunctionType_e m_type;
+  RplObjectiveCodePoint_e m_type;
+  uint16_t m_minHopRankIncrease;
+  uint16_t m_maxRankIncrease;
+  /// OF0 operands
+  unsigned int m_rankIncrease;
+  unsigned int m_stepOfRank = DEFAULT_STEP_OF_RANK;
+  unsigned int m_stretchOfRank = DEFAULT_RANK_STRETCH;
+  unsigned int m_rankFactor = DEFAULT_RANK_FACTOR;
 };
 
 

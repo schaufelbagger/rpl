@@ -26,21 +26,74 @@ NS_LOG_COMPONENT_DEFINE ("RplObjectiveFunction");
 namespace rpl {
 
 
-RplObjectiveFunction::RplObjectiveFunction(RplObjectiveFunctionType_e type, double minHopRankIncrease) 
+RplObjectiveFunction::RplObjectiveFunction(RplObjectiveCodePoint_e type, uint16_t minHopRankIncrease, uint16_t maxRankIncrease) 
 :
+m_type (type),
 m_minHopRankIncrease (minHopRankIncrease),
-m_type (type)
+m_maxRankIncrease (maxRankIncrease)
 {
-
 }
 
-
-uint16_t RplObjectiveFunction::calculateRank ()
+RplNode RplObjectiveFunction::GetPreferredParent (std::set<RplNode> parents)
 {
-  // TODO change
-  uint16_t rank = 1;
-  return floor(rank/m_minHopRankIncrease);
+  NS_ABORT_MSG_IF (parents.empty (), "No parent in set while trying to find the preferred parent");
+  RplNode preferredParent;
+  // take the first parent
+  for (const RplNode iter_parent : parents)
+  {
+    preferredParent = iter_parent;
+    break;
+  }
+  for(RplNode node : parents) 
+  {
+    if (std::tie(node.rank, node.interface) < std::tie(preferredParent.rank, preferredParent.interface))
+    {
+      preferredParent = node;
+    }
+  }
+  return preferredParent;
 }
+std::list<RplNode> RplObjectiveFunction::ProvideDaoParentList (std::set<RplNode> parents)
+{
+  std::list<RplNode> daoParentList;
+  daoParentList.push_back (GetPreferredParent (parents));
+  return daoParentList;
+}
+
+void RplObjectiveFunction::ProcessingDio (RplObjectiveCodePoint_e type, uint16_t minHopRankIncrease, uint16_t maxRankIncrease)
+{
+  m_type = type;
+  m_minHopRankIncrease = minHopRankIncrease;
+  m_maxRankIncrease = maxRankIncrease;
+  CalculateRankIncrease ();
+}
+
+void RplObjectiveFunction::CalculateRankIncrease (uint16_t minHopRankIncrease, uint16_t maxRankIncrease)
+{
+  m_rankIncrease = (m_rankFactor*m_stepOfRank + m_stretchOfRank) * m_minHopRankIncrease;
+  if(maxRankIncrease > 0 && m_rankIncrease > maxRankIncrease)
+  {
+    m_rankIncrease = maxRankIncrease;
+  }
+}
+void RplObjectiveFunction::CalculateRankIncrease ()
+{
+  CalculateRankIncrease (m_minHopRankIncrease, m_maxRankIncrease);
+}
+
+uint16_t RplObjectiveFunction::CalculateRank (uint16_t preferredParentRank)
+{
+  // TODO change, use ETX
+  uint16_t rank;
+  rank = preferredParentRank + m_rankIncrease;
+
+  return rank;
+}
+uint16_t RplObjectiveFunction::DagRank (uint16_t rank)
+{
+  return floor (rank/m_minHopRankIncrease);
+}
+
 
 
 }
