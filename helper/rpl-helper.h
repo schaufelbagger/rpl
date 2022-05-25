@@ -45,7 +45,7 @@ public:
    * Create an RplHelper that makes life easier for people who want to install
    * RPL routing to nodes.
    */
-  RplHelper ( uint16_t instanceId = 0, 
+  RplHelper ( uint8_t instanceId = 0, 
               rpl::RplMop_e mop = rpl::MOP_STORING_NO_MULTICAST, 
               bool isRoot = false, 
               rpl::RplDisMop_e disMop = rpl::DIS_MOP_WAIT, 

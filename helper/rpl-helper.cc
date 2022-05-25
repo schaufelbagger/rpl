@@ -26,7 +26,7 @@
 namespace ns3 {
 
 
-RplHelper::RplHelper(uint16_t instanceId, rpl::RplMop_e mop, bool isRoot, rpl::RplDisMop_e disMop, Time disMessageTime, int numberOfDisMessages)
+RplHelper::RplHelper(uint8_t instanceId, rpl::RplMop_e mop, bool isRoot, rpl::RplDisMop_e disMop, Time disMessageTime, int numberOfDisMessages)
 :
 m_instanceId (instanceId),
 m_mop (mop),
