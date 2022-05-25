@@ -16,13 +16,14 @@ build_lib(
                  helper/rpl-helper.cc 
                  model/rpl-header.cc
                  model/rpl-header-option.cc
-                 model/rpl-dodag.cc
                  model/rpl-objective-function.cc
+                 model/rpl-state.cc
     HEADER_FILES model/rpl.h
                  helper/rpl-helper.h
                  model/rpl-header.h
                  model/rpl-header-option.h
                  model/rpl-objective-function.h
+                 model/rpl-state.h
     LIBRARIES_TO_LINK ${libinternet}
                       ${libwifi}
                       ${liblr-wpan}
