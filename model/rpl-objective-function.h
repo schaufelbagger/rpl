@@ -69,7 +69,7 @@ public:
   }
 
   RplNode GetPreferredParent (std::set<RplNode> parents);
-  std::list<RplNode> ProvideDaoParentList (std::set<RplNode> parents);
+  std::set<RplNode> GetDaoParents (std::set<RplNode> parents);
   void ProcessingDio (RplObjectiveCodePoint_e type, uint16_t minHopRankIncrease, uint16_t maxRankIncrease);
   void ProvideDagInformation ();
   void TriggeredUpdates ();

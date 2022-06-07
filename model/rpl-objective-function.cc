@@ -53,11 +53,11 @@ RplNode RplObjectiveFunction::GetPreferredParent (std::set<RplNode> parents)
   }
   return preferredParent;
 }
-std::list<RplNode> RplObjectiveFunction::ProvideDaoParentList (std::set<RplNode> parents)
+std::set<RplNode> RplObjectiveFunction::GetDaoParents (std::set<RplNode> parents)
 {
-  std::list<RplNode> daoParentList;
-  daoParentList.push_back (GetPreferredParent (parents));
-  return daoParentList;
+  std::set<RplNode> daoParents;
+  daoParents.insert (GetPreferredParent (parents));
+  return daoParents;
 }
 
 void RplObjectiveFunction::ProcessingDio (RplObjectiveCodePoint_e type, uint16_t minHopRankIncrease, uint16_t maxRankIncrease)
