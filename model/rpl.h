@@ -258,6 +258,7 @@ private:
 
   void Start ();
   void InitRoot ();
+  bool isPacketForMe (Ipv6Address destinationAddr, uint32_t incomingInterface);
   /**
    * Receive and process control packet
    * \param socket input socket
@@ -266,7 +267,7 @@ private:
 
   void ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header);
   void ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uint32_t incomingInterface);
-  void ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header);
+  void ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uint32_t incomingInterface);
   void ReceiveDaoAck (Ptr<Packet> packet, Ipv6Header ipv6Header);
 
   void UpdatePreferredParent ();
@@ -281,6 +282,7 @@ private:
   void PoisonChildren ();
   void AddRouteToRoutingTable (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward);
   void AddRouteToRoutingTable (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward);
+  void AddDownwardRoutesToRoutingTable (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t daoSequence);
   /**
    * \brief adds sending and receive sockets
    * 
@@ -374,7 +376,9 @@ private:
   /// DAO based Parameters
   Time m_delayDao;
   int m_numberOfDaoRetries;
-  //int m_daoMessageCounter = 0;
+  // is used to construct the Dao and is cleared afterwards
+  //std::map<RplHeaderOption,std::list<RplHeaderOption> > m_childRplTargets;
+  std::list<RplHeaderOption> m_childRplTargets;
 
 
   /// RPL Identifiers
@@ -391,8 +395,10 @@ private:
   uint8_t m_pathSequence = 0;
 
   /// DODAG state
-  std::set<RplNode> m_candidateParents;
-  RplNode m_preferredParent = {INFINITE_RANK, Ipv6Address ("::"), 0};
+  //std::set<RplNode> m_candidateNeighbors; // not used, DODAG Parents are directly added from DIOs
+  std::set<RplNode> m_dodagParents;
+  //std::set<RplNode> m_daoParents;
+  RplNode m_preferredParent = {INFINITE_RANK, Ipv6Address ("::"), 0,0};
   bool m_dtsnChanged;
 
   /// DIS Mode of Operation
@@ -402,7 +408,7 @@ private:
   /// Timers
   TrickleTimer m_trickleTimer = TrickleTimer (MilliSeconds(pow(2,DEFAULT_DIO_INTERVAL_MIN)), DEFAULT_DIO_INTERVAL_DOUBLINGS,DEFAULT_DIO_REDUNDANCY_CONSTANT);
   Timer m_disMessageTimer = Timer (Timer::CANCEL_ON_DESTROY);
-  Timer m_daoAckTimer = Timer (Timer::CANCEL_ON_DESTROY);
+  //Timer m_daoAckTimer = Timer (Timer::CANCEL_ON_DESTROY);
   Time m_daoAckTimeout = Seconds(10);
 
   /// Events
@@ -419,7 +425,7 @@ private:
   };
   /// Storage
   std::list<SentDao> m_sentDaos;
-  std::map<RplHeaderOption,std::list<RplHeaderOption> > m_childRplTargets;
+
 
 };
 

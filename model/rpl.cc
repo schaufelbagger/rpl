@@ -169,7 +169,7 @@ m_numberOfDaoRetries (numberOfDaoRetries)
 
 void RoutingProtocol::DoInitialize ()
 {
-  NS_LOG_DEBUG(this);
+  NS_LOG_FUNCTION(this);
   m_initialized = true;
 
   for (uint32_t i = 0 ; i < m_ipv6->GetNInterfaces (); i++)
@@ -206,6 +206,7 @@ void RoutingProtocol::DoInitialize ()
 
 void RoutingProtocol::InitRoot ()
 {
+  NS_LOG_FUNCTION(this);
   RplObjectiveCodePoint_e current_ocp;
 
   NS_ABORT_MSG_IF (m_mop > 3, "Mode of Operation is invalid");
@@ -320,8 +321,24 @@ void RoutingProtocol::SetIpv6 (Ptr<Ipv6> ipv6)
 }
 void RoutingProtocol::Start ()
 {
-
 }
+
+bool RoutingProtocol::isPacketForMe (Ipv6Address destinationAddr, uint32_t incomingInterface)
+{
+  if (destinationAddr == Ipv6Address (RPL_ALL_NODE))
+  {
+    return true;
+  }
+  for (uint32_t addressIndex = 0; addressIndex < m_ipv6->GetNAddresses (incomingInterface); addressIndex++)
+  {
+    if (destinationAddr == m_ipv6->GetAddress (incomingInterface, addressIndex).GetAddress ())
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 void RoutingProtocol::Receive (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
@@ -363,6 +380,13 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
 
   Ipv6Header ipv6Header;
   packet->RemoveHeader (ipv6Header);
+
+  if (!isPacketForMe (ipv6Header.GetDestination (), ipInterfaceIndex))
+  {
+    NS_LOG_LOGIC ("Packet Destination Address is neither RPL All Address or a IP address on this node - dropping packet");
+    return;
+  }
+
   NS_ABORT_MSG_UNLESS (ipv6Header.GetNextHeader () == Ipv6Header::IPV6_ICMPV6, "The received Packet is not an ICMPv6 packet");
   RplIcmpv6Header rplIcmpv6Header;
 
@@ -381,7 +405,7 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
       ReceiveDio (packet, ipv6Header, ipInterfaceIndex);
       break;
     case TYPE_DAO:
-      ReceiveDao (packet, ipv6Header);
+      ReceiveDao (packet, ipv6Header, ipInterfaceIndex);
       break;
     case TYPE_DAO_ACK:
       ReceiveDaoAck (packet, ipv6Header);
@@ -397,7 +421,7 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
 void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
 {
   NS_LOG_FUNCTION (this << +packet << ipv6Header);
-  NS_LOG_LOGIC ("Received DIS");
+  NS_LOG_LOGIC ("Received DIS from " << ipv6Header.GetSource ());
   DisHeader disHeader;
   uint16_t payloadLength;
 
@@ -432,7 +456,7 @@ void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
   else if (ipv6Header.GetDestination ().IsLinkLocal ())
   {
     // send DIO
-    NS_LOG_LOGIC ("RPL: Send DIO with DODAG Configuration to Node that sent the DIS message");
+    NS_LOG_LOGIC ("RPL: Send DIO with DODAG Configuration to Node (" << ipv6Header.GetSource () << ")that sent the DIS message");
     Ptr<Packet> packet = Create<Packet> ();
     RplHeaderOption dodagConfig;
     DioHeader dioHeader (m_instanceId, m_dodagVersionNumber, m_rank, m_isGrounded, m_mop, m_dodagPreference, m_dtsn++, 0, 0, m_dodagId);
@@ -462,7 +486,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     NS_LOG_LOGIC ("Received DIO as root, discarding packet");
     return;
   }
-  NS_LOG_LOGIC ("Received DIO");
+  NS_LOG_LOGIC ("Received DIO from " << ipv6Header.GetSource ());
 
   packet->RemoveHeader (dioHeader);
   payloadLength = ipv6Header.GetPayloadLength () - 4 - dioHeader.GetSerializedSize ();
@@ -513,6 +537,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
             m_instanceId = dioHeader.GetRplInstanceId ();
             m_dodagVersionNumber = dioHeader.GetVersionNumber ();
             m_rank = m_ocp.CalculateRank (dioHeader.GetRank ());
+            NS_LOG_DEBUG ("Setting Rank to " << +m_ocp.DagRank (m_rank));
             m_isGrounded = dioHeader.GetGrounded ();
             m_mop = static_cast<RplMop_e>(dioHeader.GetMop ());
             m_dodagPreference = dioHeader.GetPrf ();
@@ -531,8 +556,10 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
           {
             NS_ABORT_MSG ("TODO add what to do when ocp is received which is not supported by this node");
           }
+          break;
+          
         }else{
-          NS_ABORT_MSG ("TODO add what to do when receiving DIO with DODAG Config option and Node already joined DODAG");
+          NS_LOG_DEBUG ("TODO add what to do when receiving DIO with DODAG Config option and Node already joined DODAG");
         }
         break;
       }
@@ -545,11 +572,11 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     }
   }
 
-  // no parents and no dodagConfiguration means the node hast to ask the sender for a DODAG Configuration Option
+  // if node joined no DODAG and no dodagConfiguration means the node hast to ask the sender for a DODAG Configuration Option
   if (m_dodagId.IsAny () && !receivedDodagConfiguration)
   {
     // send DIS
-    NS_LOG_LOGIC ("RPL: Send DIS Unicast to request a DODAG Configuration Option");
+    NS_LOG_LOGIC ("RPL: Send DIS Unicast to request a DODAG Configuration Option from " << ipv6Header.GetSource ());
     Ptr<Packet> packet = Create<Packet> ();
     DisHeader disHeader;
     RplIcmpv6Header rplIcmpv6Header (TYPE_DIS);
@@ -567,35 +594,37 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     UpdatePreferredParent ();
   }
 
-  // TODO change preferred parent to DAOparents
-  // checks if dtsn is updated to include self route information for DAO messages
-  if (m_preferredParent.address == ipv6Header.GetSource ())
-  {
-    if (dioHeader.GetDtsn () > m_preferredParent.dtsn)
-    {
-      m_dtsnChanged = true;
-      m_preferredParent.dtsn = dioHeader.GetDtsn ();
-      // for non-storing mode trigger self dtsn update
-      if (!m_isStoring)
-      {
-        m_dtsn++;
-      }
-    }
-  }
-
   // add sender as upward route if rank is lower then the nodes rank
   if (m_ocp.DagRank (dioHeader.GetRank ()) < m_ocp.DagRank (m_rank) && m_dodagId == dioHeader.GetDodagId () && m_instanceId == dioHeader.GetRplInstanceId ())
   {
     // add link local address
     AddRouteToRoutingTable (ipv6Header.GetSource (), incomingInterface, 1, dioHeader.GetDodagId (), dioHeader.GetRplInstanceId (), dioHeader.GetDtsn (), false);
     RplNode newNode = {dioHeader.GetRank (), ipv6Header.GetSource (), incomingInterface, dioHeader.GetDtsn ()};
-    auto nodeIter = m_candidateParents.find (newNode);
-    if (nodeIter != m_candidateParents.end () && nodeIter->dtsn != dioHeader.GetDtsn ()) 
+    auto nodeIter = m_dodagParents.find (newNode);
+    if (nodeIter != m_dodagParents.end () && nodeIter->dtsn != dioHeader.GetDtsn ()) 
     {
-      m_candidateParents.erase (nodeIter);
+      m_dodagParents.erase (nodeIter);
     }
-    m_candidateParents.insert (newNode);
+    m_dodagParents.insert (newNode);
     UpdatePreferredParent ();
+
+    // checks if dtsn is updated to include self route information for DAO messages
+    for (RplNode daoParent : m_ocp.GetDaoParents (m_dodagParents))
+    {
+      if (daoParent.address == ipv6Header.GetSource ())
+      {
+        if (dioHeader.GetDtsn () > daoParent.dtsn)
+        {
+          m_dtsnChanged = true;
+          // for non-storing mode trigger self dtsn update
+          if (!m_isStoring)
+          {
+            m_dtsn++;
+          }
+        }
+      }
+    }
+
     return;
   }
 
@@ -615,15 +644,54 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
 
 }
 
-void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header)
+void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uint32_t incomingInterface)
 {
   NS_LOG_FUNCTION (this << +packet << ipv6Header);
-  NS_LOG_LOGIC ("Received DAO");
+  if (m_mop == MOP_NO_DOWNWARD_ROUTES)
+  {
+    NS_LOG_LOGIC ("Received DAO, but no downward route are supported - dropping DAO");
+    return;
+  }else if (m_dodagId.IsAny())
+  {
+    NS_LOG_LOGIC ("Received DAO, but detached from DODAG- dropping DAO");
+    return;
+  }
+  NS_LOG_LOGIC ("Received DAO from " << ipv6Header.GetSource ());
+
+  if (!m_isRoot)
+  {
+    for (RplNode daoParent : m_ocp.GetDaoParents (m_dodagParents))
+    {
+      if (daoParent.address == ipv6Header.GetSource ())
+      {
+        NS_ABORT_MSG ("loop detected - received DAO from DAO parent");
+      }
+    }
+  }
   DaoHeader daoHeader;
   uint16_t payloadLength;
 
   packet->RemoveHeader (daoHeader);
   payloadLength = ipv6Header.GetPayloadLength () - 4 - daoHeader.GetSerializedSize ();
+
+  if (daoHeader.GetK ())
+  {
+    NS_LOG_LOGIC ("RPL: Send DAO ACK back to DAO sender to " << ipv6Header.GetSource ());
+    Ptr<Packet> daoAckpacket = Create<Packet> ();
+    uint8_t d = (m_instanceId & 0b10000000) >> 7; // set the d flag when the local RplInstanceID is used
+    uint8_t reserved = 0;
+    uint8_t status = 0;
+    DaoAckHeader daoAckHeader (m_instanceId, d, reserved, daoHeader.GetDaoSequence (), status, m_dodagId);
+    RplIcmpv6Header rplIcmpv6Header (TYPE_DAO_ACK);
+
+    daoAckpacket->AddHeader (daoAckHeader);
+    daoAckpacket->AddHeader (rplIcmpv6Header);
+
+    SendOnAllInterfaces (daoAckpacket, Inet6SocketAddress (ipv6Header.GetSource ()));
+  }
+
+  std::list<RplHeaderOption::RplTarget> currentRplTargets;
+  std::list<RplHeaderOption::TransitInformation> currentTransitInformations;
 
   while (payloadLength > 0)
   {
@@ -637,10 +705,21 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header)
     case OPTION_TYPE_PADN:
       break;
     case OPTION_TYPE_RPL_TARGET:
-      NS_ABORT_MSG ("TODO add what to do when receiving DAO with RPL_TARGET option");
+      if (!currentTransitInformations.empty ())
+      {
+        // update routing table
+        AddDownwardRoutesToRoutingTable (currentRplTargets, currentTransitInformations, ipv6Header.GetSource (), incomingInterface, 1, daoHeader.GetDaoSequence ());
+        currentRplTargets.clear ();
+        currentTransitInformations.clear ();
+      }
+      currentRplTargets.push_back (option.GetRplTarget ());
+      // save option temporarily to send upward
+      m_childRplTargets.push_back (option);
       break;
     case OPTION_TYPE_TRANSIT_INFORMATION:
-      NS_ABORT_MSG ("TODO add what to do when receiving DAO with TRANSIT_INFORMATION option");
+      currentTransitInformations.push_back (option.GetTransitInformation ());
+      // save option temporarily to send upward
+      m_childRplTargets.push_back (option);
       break;
     case OPTION_TYPE_RPL_TARGET_DESCRIPTOR:
       NS_ABORT_MSG ("TODO add what to do when receiving DAO with RPL_TARGET_DESCRIPTOR option");
@@ -650,15 +729,24 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header)
       break;
     }
   }
+  // update routing table
+  AddDownwardRoutesToRoutingTable (currentRplTargets, currentTransitInformations, ipv6Header.GetSource (), incomingInterface, 1, daoHeader.GetDaoSequence ());
 
+  // pass received DAO upward to parents
+  if (!m_isRoot && m_preferredParent.rank != INFINITE_RANK)
+  {
+    if (m_sendDaoEvent.GetUid () == m_sendDaoEvent.INVALID || m_sendDaoEvent.IsExpired ())
+    {
+      m_sendDaoEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, false);
+    }
+  }
 
-  NS_ABORT_MSG ("TODO add what to do when receiving DAO message!");
 }
 
 void RoutingProtocol::ReceiveDaoAck (Ptr<Packet> packet, Ipv6Header ipv6Header)
 {
   NS_LOG_FUNCTION (this << +packet << ipv6Header);
-  NS_LOG_LOGIC ("Received DAO-ACK");
+  NS_LOG_LOGIC ("Received DAO-ACK from " << ipv6Header.GetSource ());
   DaoAckHeader daoAckHeader;
   uint16_t payloadLength;
 
@@ -680,23 +768,18 @@ void RoutingProtocol::ReceiveDaoAck (Ptr<Packet> packet, Ipv6Header ipv6Header)
       ++iter;
     }
   }
-
-
-
-
-  NS_ABORT_MSG ("TODO add what to do when receiving DAO-ACK message!");
 }
 
 void RoutingProtocol::UpdatePreferredParent ()
 {
   NS_LOG_FUNCTION (this);
-  if (m_candidateParents.empty ())
+  if (m_dodagParents.empty ())
   {
     DetachFromDodag ();
   }
   
 
-  RplNode newPreferredParent = m_ocp.GetPreferredParent (m_candidateParents);
+  RplNode newPreferredParent = m_ocp.GetPreferredParent (m_dodagParents);
 
   if (newPreferredParent.rank == INFINITE_RANK) 
   {
@@ -707,7 +790,11 @@ void RoutingProtocol::UpdatePreferredParent ()
   {
     NS_LOG_LOGIC ("Updating new preferred parent");
     ClearPreferredParentRoutes ();
-    m_sentDaos.clear();
+    for(auto iter = m_sentDaos.begin(); iter != m_sentDaos.end();)
+    {
+      iter->event.Cancel ();
+      iter = m_sentDaos.erase(iter);
+    }
     m_preferredParent = newPreferredParent;
     m_preferredParentRoute = RplRoutingTableEntry (newPreferredParent.address, newPreferredParent.interface);
     AddRouteToRoutingTable (newPreferredParent.address, newPreferredParent.interface, 1, m_dodagId, m_instanceId, m_dtsn, false);
@@ -728,12 +815,17 @@ void RoutingProtocol::UpdatePreferredParent ()
       NS_LOG_LOGIC ("DAO disabled by mode of operation");
     }
   }
+  else{
+    //update DTSN of preferred parent
+    m_preferredParent.dtsn = newPreferredParent.dtsn;
+  }
 
   //calculate new node rank from new parent
   uint16_t newRank = m_ocp.CalculateRank (newPreferredParent.rank);
   if (newRank != m_rank)
   {
     m_rank = newRank;
+    NS_LOG_DEBUG ("Setting Rank to " << +m_ocp.DagRank (m_rank));
     RemoveObsoleteParents ();
   }
 }
@@ -741,11 +833,11 @@ void RoutingProtocol::UpdatePreferredParent ()
 void RoutingProtocol::RemoveObsoleteParents ()
 {
   NS_LOG_FUNCTION (this);
-  for(auto iter = m_candidateParents.begin(); iter != m_candidateParents.end();)
+  for(auto iter = m_dodagParents.begin(); iter != m_dodagParents.end();)
   {
     if(m_ocp.DagRank ((*iter).rank) > m_ocp.DagRank (m_rank))
     {
-      iter = m_candidateParents.erase(iter);
+      iter = m_dodagParents.erase(iter);
     }
     else
     {
@@ -762,7 +854,7 @@ void RoutingProtocol::DeletePreferredParent ()
     NS_ABORT_MSG ("No preferred parent set");
   }
   ClearPreferredParentRoutes();
-  m_candidateParents.erase(m_preferredParent);
+  m_dodagParents.erase(m_preferredParent);
   m_preferredParent = {INFINITE_RANK, Ipv6Address ("::"), 0};
 }
 
@@ -799,7 +891,11 @@ void RoutingProtocol::DetachFromDodag ()
 {
   NS_LOG_FUNCTION (this);
   ClearDownwardRoutes ();
-  m_sentDaos.clear ();
+  for(auto iter = m_sentDaos.begin(); iter != m_sentDaos.end();)
+  {
+    iter->event.Cancel ();
+    iter = m_sentDaos.erase(iter);
+  }
   m_trickleTimer.Stop ();
   m_rank = INFINITE_RANK;
   PoisonChildren ();
@@ -880,10 +976,13 @@ void RoutingProtocol::NotifyInterfaceDown (uint32_t interface)
 }
 void RoutingProtocol::NotifyAddAddress (uint32_t interface, Ipv6InterfaceAddress address)
 {
-  //AddRouteToRoutingTable (address.GetAddress (), interface);
+  // TODO add sockets when Address is added to active interface
 }
 void RoutingProtocol::NotifyRemoveAddress (uint32_t interface, Ipv6InterfaceAddress address)
-{}
+{
+  // TODO remove sockets when Address is removed from interface
+  // TODO also remove routing table entries
+}
 void RoutingProtocol::NotifyAddRoute (Ipv6Address dst, Ipv6Prefix mask, Ipv6Address nextHop, uint32_t interface, Ipv6Address prefixToUse)
 {}
 void RoutingProtocol::NotifyRemoveRoute (Ipv6Address dst, Ipv6Prefix mask, Ipv6Address nextHop, uint32_t interface, Ipv6Address prefixToUse)
@@ -919,6 +1018,25 @@ void RoutingProtocol::AddRouteToRoutingTable (Ipv6Address dest, uint32_t interfa
   m_routingTable.push_back (route);
 }
 
+void RoutingProtocol::AddDownwardRoutesToRoutingTable (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t daoSequence)
+{
+  if (!transitInformations.empty ())
+  {
+    for (auto currentRplTarget : rplTargets)
+    {
+      bool downward = true;
+      uint8_t dtsn = daoSequence;
+      if (m_isStoring)
+      {
+        AddRouteToRoutingTable (currentRplTarget.targetPrefix.ConvertToIpv6Address (), nextHop, interface, metric, m_dodagId, m_instanceId, dtsn, downward);
+      }
+      else
+      {
+        NS_ABORT_MSG ("TODO implement routing table entry in non-storing mode");
+      }
+    }
+  }
+}
 
 void RoutingProtocol::RegisterSockets (uint32_t interface)
 {
@@ -945,7 +1063,7 @@ void RoutingProtocol::RegisterSockets (uint32_t interface)
 
     if (address.GetScope() == Ipv6InterfaceAddress::LINKLOCAL && sendSocketFound == false && activeInterface == true)
     {
-      NS_LOG_LOGIC ("RPL: adding sending socket to " << address.GetAddress ());
+      NS_LOG_LOGIC ("RPL: adding sending socket to " << address.GetAddress () << " from interface " << +interface);
       TypeId tid = TypeId::LookupByName ("ns3::Ipv6RawSocketFactory");
       Ptr<Socket> socket = Socket::CreateSocket (GetObject<Node> (), tid);
       NS_ASSERT (socket);
@@ -987,7 +1105,7 @@ void RoutingProtocol::SendOnAllInterfaces (Ptr<Packet> packet, const Address &to
 
     if (m_interfaceExclusions.find (interface) == m_interfaceExclusions.end ())
     {
-      NS_LOG_DEBUG ("SendTo: " << (*packet));
+      NS_LOG_INFO ("SendTo: " << (*packet));
       iter->first->SendTo (packet, 0, toAddress);
     }
   }
@@ -995,6 +1113,7 @@ void RoutingProtocol::SendOnAllInterfaces (Ptr<Packet> packet, const Address &to
 
 Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<NetDevice> interface)
 {
+  NS_LOG_FUNCTION (this << dst << setSource << interface);
   Ptr<Ipv6Route> rtentry = Create<Ipv6Route> ();
   // when sending on link-local multicast, there have to be interface specified
   if (dst.IsLinkLocalMulticast ())
@@ -1009,7 +1128,7 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
   }
   if (dst.IsLinkLocal ())
   {
-    NS_ASSERT_MSG (interface, "Try to send on link-local unicast address, and no interface index is given!");
+    NS_ASSERT_MSG (interface, "Try to send on link-local unicast address " << dst << ", and no interface " << interface << " index is given!");
     rtentry = Create<Ipv6Route> ();
     rtentry->SetSource (m_ipv6->SourceAddressSelection (m_ipv6->GetInterfaceForDevice (interface), dst));
     rtentry->SetDestination (dst);
@@ -1126,7 +1245,7 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
   }
   
   // send DAO
-  NS_LOG_LOGIC ("RPL: Send DAO Broadcast due to DAO Timer expiration");
+  NS_LOG_LOGIC ("RPL: Send DAO to DAO parents");
   Ptr<Packet> packet = Create<Packet> ();
   uint8_t d = (m_instanceId & 0b10000000) >> 7; // set the d flag when the local RplInstanceID is used
 
@@ -1164,19 +1283,21 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
 
             if (address.GetScope() == Ipv6InterfaceAddress::GLOBAL)
             {
-              uint8_t rawPrefix[16];
-              address.GetAddress ().GetBytes (rawPrefix);
-              Ipv6Prefix selfAddress = Ipv6Prefix (rawPrefix);
               RplHeaderOption selfTarget;
-              selfTarget.SetRplTarget (128, selfAddress);
+              selfTarget.SetRplTarget (address.GetAddress ());
               packet->AddHeader (selfTarget);
-
             }
           }
         }
       }
     }
-  }else
+    // add rpl targets from child nodes in reverse order
+    for (std::list<RplHeaderOption>::reverse_iterator iter=m_childRplTargets.rbegin(); iter!=m_childRplTargets.rend(); ++iter)
+    {
+      packet->AddHeader (*iter);
+    }
+  }
+  else
   {
     NS_ABORT_MSG ("TODO Add what to do in Non-Storing mode");
   }
@@ -1188,7 +1309,12 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
   packet->AddHeader (daoHeader);
   packet->AddHeader (rplIcmpv6Header);
 
-  SendOnAllInterfaces (packet, Inet6SocketAddress (m_preferredParent.address));
+  // Send to all dao parents (currently only the preferred parent)
+  for (RplNode daoParent : m_ocp.GetDaoParents (m_dodagParents))
+  {
+    SendOnAllInterfaces (packet, Inet6SocketAddress (daoParent.address));
+  }
+
 
   if (m_k && !isNoPath)
   {
@@ -1228,7 +1354,7 @@ void RoutingProtocol::ResendDao (uint8_t daoSequence)
         m_sendDaoNoPathEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, true);
         iter = m_sentDaos.erase(iter);
         DeletePreferredParent ();
-        UpdatePreferredParent (); 
+        UpdatePreferredParent ();
       }
     }
     else
