@@ -379,6 +379,7 @@ public:
   void SetRplTarget (uint8_t flags, uint8_t prefixLength, Ipv6Prefix targetPrefix);
   void SetRplTarget (uint8_t prefixLength, Ipv6Prefix targetPrefix);
   void SetRplTarget (Ipv6Prefix targetPrefix);
+  void SetRplTarget (Ipv6Address targetPrefix);
 
   /**
    * \ingroup rpl

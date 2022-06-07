@@ -537,6 +537,13 @@ void RplHeaderOption::SetRplTarget (Ipv6Prefix targetPrefix)
 {
   SetRplTarget (0, targetPrefix.GetPrefixLength (), targetPrefix);
 }
+void RplHeaderOption::SetRplTarget (Ipv6Address targetPrefix)
+{
+  uint8_t rawPrefix[16];
+  targetPrefix.GetBytes (rawPrefix);
+  Ipv6Prefix selfAddress = Ipv6Prefix (rawPrefix);
+  SetRplTarget (0, 128, selfAddress);
+}
 
 void RplHeaderOption::RplTarget::Print (std::ostream &os) const
 {
