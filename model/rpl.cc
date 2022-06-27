@@ -708,7 +708,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   if (m_ocp.DagRank (dioHeader.GetRank ()) < m_ocp.DagRank (m_rank) && m_dodagId == dioHeader.GetDodagId () && m_instanceId == dioHeader.GetRplInstanceId ())
   {
     // add link local address
-    AddRouteToRoutingTable (ipv6Header.GetSource (), incomingInterface, 1, dioHeader.GetDodagId (), dioHeader.GetRplInstanceId (), dioHeader.GetDtsn (), false);
+    m_routingTable.AddRoute (ipv6Header.GetSource (), incomingInterface, 1, dioHeader.GetDodagId (), dioHeader.GetRplInstanceId (), dioHeader.GetDtsn (), 0xFF, false);
     RplNode newNode = {dioHeader.GetRank (), ipv6Header.GetSource (), incomingInterface, dioHeader.GetDtsn ()};
     auto nodeIter = m_dodagParents.find (newNode);
     bool nodeDtsnChanged = false;
@@ -832,18 +832,19 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
       if (!currentTransitInformations.empty ())
       {
         // update routing table
-        AddDownwardRoutesToRoutingTable (currentRplTargets, currentTransitInformations, ipv6Header.GetSource (), incomingInterface, 1, daoHeader.GetDaoSequence ());
+
+        m_routingTable.AddDownwardRoutes (currentRplTargets, currentTransitInformations, ipv6Header.GetSource (), incomingInterface, 1, daoHeader.GetDaoSequence (), m_dodagId, m_instanceId, m_isStoring);
         currentRplTargets.clear ();
         currentTransitInformations.clear ();
       }
       currentRplTargets.push_back (option.GetRplTarget ());
       // save option temporarily to send upward
-      m_childRplTargets.push_back (option);
+      m_childDaoOptions.push_back (option);
       break;
     case OPTION_TYPE_TRANSIT_INFORMATION:
       currentTransitInformations.push_back (option.GetTransitInformation ());
       // save option temporarily to send upward
-      m_childRplTargets.push_back (option);
+      m_childDaoOptions.push_back (option);
       break;
     case OPTION_TYPE_RPL_TARGET_DESCRIPTOR:
       NS_ABORT_MSG ("TODO add what to do when receiving DAO with RPL_TARGET_DESCRIPTOR option");
@@ -854,7 +855,7 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     }
   }
   // update routing table
-  AddDownwardRoutesToRoutingTable (currentRplTargets, currentTransitInformations, ipv6Header.GetSource (), incomingInterface, 1, daoHeader.GetDaoSequence ());
+  m_routingTable.AddDownwardRoutes (currentRplTargets, currentTransitInformations, ipv6Header.GetSource (), incomingInterface, 1, daoHeader.GetDaoSequence (), m_dodagId, m_instanceId, m_isStoring);
 
 
   // pass received DAO upward to parents
@@ -925,11 +926,11 @@ void RoutingProtocol::UpdatePreferredParent ()
       iter = m_sentDaos.erase(iter);
     }
     m_preferredParent = newPreferredParent;
-    m_preferredParentRoute = RplRoutingTableEntry (newPreferredParent.address, newPreferredParent.interface);
-    AddRouteToRoutingTable (newPreferredParent.address, newPreferredParent.interface, 1, m_dodagId, m_instanceId, m_dtsn, false);
+    m_routingTable.SetPreferredParentRoute (RplRoutingTableEntry (newPreferredParent.address, newPreferredParent.interface));
+    m_routingTable.AddRoute (newPreferredParent.address, newPreferredParent.interface, 1, m_dodagId, m_instanceId, m_dtsn, 0xFF, false);
     if (newPreferredParent.address != m_dodagId)
     {
-      AddRouteToRoutingTable (m_dodagId, newPreferredParent.address, newPreferredParent.interface, 1, m_dodagId, m_instanceId, m_dtsn, false);
+      m_routingTable.AddRoute (m_dodagId, newPreferredParent.address, newPreferredParent.interface, 1, m_dodagId, m_instanceId, m_dtsn, 0xFF, false);
     }
     // trickle timer inconsistency due to parent change
     m_trickleTimer.InconsistentEvent ();
@@ -995,25 +996,11 @@ void RoutingProtocol::ClearPreferredParentRoutes()
     NS_ABORT_MSG ("No preferred parent set");
   }
 
-  NS_ABORT_MSG_IF (m_routingTable.empty (), "Routes are empty");
-  m_preferredParentRoute = RplRoutingTableEntry ();
+  NS_ABORT_MSG_IF (m_routingTable.Empty (), "Routes are empty");
+  m_routingTable.SetPreferredParentRoute (RplRoutingTableEntry ());
   // delete routes where destination or next hop address is the preferred parent address
-  for(auto iter = m_routingTable.begin(); iter != m_routingTable.end();)
-  {
-    RplRoutingTableEntry currentRoute = *iter;
-    if(currentRoute.GetDest () == m_preferredParent.address && currentRoute.GetInterface () == m_preferredParent.interface)
-    {
-      iter = m_routingTable.erase(iter);
-    }
-    else if (currentRoute.GetGateway () == m_preferredParent.address && currentRoute.GetInterface () == m_preferredParent.interface)
-    {
-      iter = m_routingTable.erase(iter);
-    }
-    else
-    {
-      ++iter;
-    }
-  }
+  m_routingTable.RemoveRoutes (m_preferredParent.address, m_preferredParent.address, m_preferredParent.interface);
+  
 }
 
 void RoutingProtocol::DetachFromDodag ()
@@ -1038,20 +1025,8 @@ void RoutingProtocol::DetachFromDodag ()
 void RoutingProtocol::ClearDownwardRoutes ()
 {
   NS_LOG_FUNCTION (this);
-  NS_ABORT_MSG_IF (m_routingTable.empty (), "Routes are empty");
-  for(auto iter = m_routingTable.begin(); iter != m_routingTable.end();)
-  {
-    RplRoutingTableEntry currentRoute = *iter;
-    // remove routes where destination is global and next hop is link-local, as well the route belongs to the Sub-DODAG
-    if(!currentRoute.GetDest ().IsLinkLocal () && currentRoute.GetGateway ().IsLinkLocal () && currentRoute.GetDownward () && currentRoute.GetDodagId () == m_dodagId && currentRoute.GetInstanceId () == m_instanceId)
-    {
-      iter = m_routingTable.erase(iter);
-    }
-    else
-    {
-      ++iter;
-    }
-  }
+  NS_ABORT_MSG_IF (m_routingTable.Empty (), "Routes are empty");
+  m_routingTable.RemoveDownwardRoutes (m_dodagId, m_instanceId);
 }
 
 void RoutingProtocol::PoisonChildren () 
@@ -1122,73 +1097,19 @@ void RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::
                         << ", Local time: " << m_ipv6->GetObject<Node> ()->GetLocalTime ().As (unit)
                         << ", RPL Routing table" << std::endl;
 
-  for (RplRoutingTableEntry const& route : m_routingTable)
-  {
-    route.Print (*stream->GetStream ());
-  }
-  *stream->GetStream () << std::endl;
+  m_routingTable.Print (*stream->GetStream ());
 
 }
 
 void RoutingProtocol::PrintRoutingTable (std::ostream &os) const
 {
-os << "Node: " << m_ipv6->GetObject<Node> ()->GetId ()
+  os << "Node: " << m_ipv6->GetObject<Node> ()->GetId ()
                         << ", RPL Routing table" << std::endl;
-  for (RplRoutingTableEntry const& route : m_routingTable)
-  {
-    route.Print (os);
-  }
-  os << std::endl;
+  m_routingTable.Print (os);
 }
 
 
-void RoutingProtocol::AddRouteToRoutingTable (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward)
-{
-  NS_LOG_FUNCTION (this << dest << nextHop << interface);
-  /*if (nextHop.IsLinkLocal())
-  {
-    NS_LOG_WARN ("RPL::AddNetworkRoute - Next hop should be link-local");
-  }*/
-  RplRoutingTableEntry route = RplRoutingTableEntry (dest, nextHop, interface);
-  route.SetMetric (metric);
-  route.SetDodagId (dodagId);
-  route.SetInstanceId (instanceId);
-  route.SetDtsn (dtsn);
-  route.SetDownward (downward);
-  m_routingTable.push_back (route);
-}
 
-void RoutingProtocol::AddRouteToRoutingTable (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward)
-{
-  NS_LOG_FUNCTION (this << dest << interface);
-  RplRoutingTableEntry route = RplRoutingTableEntry (dest, interface);
-  route.SetMetric (metric);
-  route.SetDodagId (dodagId);
-  route.SetInstanceId (instanceId);
-  route.SetDtsn (dtsn);
-  route.SetDownward (downward);
-  m_routingTable.push_back (route);
-}
-
-void RoutingProtocol::AddDownwardRoutesToRoutingTable (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t daoSequence)
-{
-  if (!transitInformations.empty ())
-  {
-    for (auto currentRplTarget : rplTargets)
-    {
-      bool downward = true;
-      uint8_t dtsn = daoSequence;
-      if (m_isStoring)
-      {
-        AddRouteToRoutingTable (currentRplTarget.targetPrefix.ConvertToIpv6Address (), nextHop, interface, metric, m_dodagId, m_instanceId, dtsn, downward);
-      }
-      else
-      {
-        NS_ABORT_MSG ("TODO implement routing table entry in non-storing mode");
-      }
-    }
-  }
-}
 
 void RoutingProtocol::RegisterSockets (uint32_t interface)
 {
@@ -1312,7 +1233,12 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
   }
 
   // search routes first
-  for (RplRoutingTableEntry const& route : m_routingTable)
+  if (auto route = m_routingTable.SearchEntry (m_ipv6, dst, interface)) 
+  {
+    return CreateRouteFromTableEntry (route.value (), setSource, dst);
+  }
+  
+  /*for (RplRoutingTableEntry const& route : m_routingTable)
   {
     if (dst == route.GetDest () )
     {
@@ -1321,7 +1247,7 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
         return CreateRouteFromTableEntry (route, setSource, dst);
       }
     }
-  }
+  }*/
 
   // if no routes are found, send to preferred parent
   if (m_isRoot)
@@ -1333,7 +1259,7 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
   {
     if (m_preferredParent.rank != INFINITE_RANK)
     {
-      return CreateRouteFromTableEntry (m_preferredParentRoute, setSource, dst);
+      return CreateRouteFromTableEntry (m_routingTable.GetPreferredParentRoute (), setSource, dst);
     }
     else
     {
@@ -1477,7 +1403,7 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
       }
     }
     // add rpl targets from child nodes in reverse order
-    for (std::list<RplHeaderOption>::reverse_iterator iter=m_childRplTargets.rbegin(); iter!=m_childRplTargets.rend(); ++iter)
+    for (std::list<RplHeaderOption>::reverse_iterator iter=m_childDaoOptions.rbegin(); iter!=m_childDaoOptions.rend(); ++iter)
     {
       packet->AddHeader (*iter);
     }
@@ -1509,7 +1435,7 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
     m_sentDaos.push_back (newDao);
     //m_daoAckTimer.Schedule ();
   }
-  m_childRplTargets.clear ();
+  m_childDaoOptions.clear ();
 
 }
 

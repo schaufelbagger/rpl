@@ -18,17 +18,20 @@ build_lib(
                  model/rpl-header-option.cc
                  model/rpl-objective-function.cc
                  model/rpl-state.cc
+                 model/rpl-routing-table.cc
     HEADER_FILES model/rpl.h
                  helper/rpl-helper.h
                  model/rpl-header.h
                  model/rpl-header-option.h
                  model/rpl-objective-function.h
                  model/rpl-state.h
+                 model/rpl-routing-table.h
     LIBRARIES_TO_LINK ${libinternet}
                       ${libwifi}
                       ${liblr-wpan}
                       ${libinternet-apps}
                       ${libsixlowpan}
+                      ${libapplications}
     TEST_SOURCES test/rpl-test-suite.cc
                  test/rpl-regression-test-suite.cc
                  test/rpl-hello-regression-test.cc

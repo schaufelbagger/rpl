@@ -283,9 +283,9 @@ private:
   void DetachFromDodag ();
   void ClearDownwardRoutes ();
   void PoisonChildren ();
-  void AddRouteToRoutingTable (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward);
-  void AddRouteToRoutingTable (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward);
-  void AddDownwardRoutesToRoutingTable (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t daoSequence);
+  //void AddRouteToRoutingTable (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward);
+  //void AddRouteToRoutingTable (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward);
+  //void AddDownwardRoutesToRoutingTable (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t daoSequence);
   /**
    * \brief adds sending and receive sockets
    * 
@@ -339,9 +339,9 @@ private:
   Ptr<Socket> m_multicastRecvSocket; // multicast receive socket
   
   /// List of known routes
-  RplRoutingTableEntry m_preferredParentRoute;
-  std::list<RplRoutingTableEntry> m_routingTable;
-  //RplRoutingTable m_routingTable;
+  //RplRoutingTableEntry m_preferredParentRoute;
+  //std::list<RplRoutingTableEntry> m_routingTable;
+  RplRoutingTable m_routingTable;
 
   /// General parameters
   bool m_isRoot;
@@ -382,7 +382,7 @@ private:
   int m_numberOfDaoRetries;
   // is used to construct the Dao and is cleared afterwards
   //std::map<RplHeaderOption,std::list<RplHeaderOption> > m_childRplTargets;
-  std::list<RplHeaderOption> m_childRplTargets;
+  std::list<RplHeaderOption> m_childDaoOptions;
 
 
   /// RPL Identifiers
