@@ -31,6 +31,7 @@
 #include "rpl-header-option.h"
 #include "rpl-objective-function.h"
 #include "rpl-state.h"
+#include "rpl-routing-table.h"
 
 #include <memory>
 
@@ -42,9 +43,9 @@ namespace rpl {
 #define RPL_ALL_NODE "ff02::1a"
 
 // Trickle timer parameter [RFC6550, 8.3.1]
-#define DEFAULT_DIO_INTERVAL_MIN 0x03
-#define DEFAULT_DIO_INTERVAL_DOUBLINGS 0x03
-#define DEFAULT_DIO_REDUNDANCY_CONSTANT 0x14
+#define DEFAULT_DIO_INTERVAL_MIN 3
+#define DEFAULT_DIO_INTERVAL_DOUBLINGS 20
+#define DEFAULT_DIO_REDUNDANCY_CONSTANT 10
 
 #define DEFAULT_DIS_DELAY Seconds(1)
 #define DEFAULT_DIS_MESSAGES 5
@@ -135,6 +136,7 @@ public:
   void NotifyAddRoute (Ipv6Address dst, Ipv6Prefix mask, Ipv6Address nextHop, uint32_t interface, Ipv6Address prefixToUse = Ipv6Address::GetZero ());
   void NotifyRemoveRoute (Ipv6Address dst, Ipv6Prefix mask, Ipv6Address nextHop, uint32_t interface, Ipv6Address prefixToUse = Ipv6Address::GetZero ());
   void PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit = Time::S) const;
+  void PrintRoutingTable  (std::ostream &os) const;
 
   /**
    * \brief Set if node is Root
@@ -259,6 +261,7 @@ private:
   void Start ();
   void InitRoot ();
   bool isPacketForMe (Ipv6Address destinationAddr, uint32_t incomingInterface);
+  bool isPacketForMe (Ipv6Address destinationAddr);
   /**
    * Receive and process control packet
    * \param socket input socket
@@ -338,6 +341,7 @@ private:
   /// List of known routes
   RplRoutingTableEntry m_preferredParentRoute;
   std::list<RplRoutingTableEntry> m_routingTable;
+  //RplRoutingTable m_routingTable;
 
   /// General parameters
   bool m_isRoot;

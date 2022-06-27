@@ -232,13 +232,42 @@ void RoutingProtocol::InitRoot ()
 
   m_rank = ROOT_RANK;
   m_dtsn = 0;
+
   if (m_dodagId.IsAny ())
   {
-    m_dodagId = m_ipv6->GetAddress (1,1).GetAddress ();  // TODO change this to add correct dodagId
+    // use first global address from node as DODAG ID
+    bool foundGlobal = false;
+    for (uint32_t interface = 0; interface < m_ipv6->GetNInterfaces (); interface++)
+    {
+      if (m_interfaceExclusions.find (interface) == m_interfaceExclusions.end ())
+      {
+        for (uint32_t addressIndex = 0; addressIndex < m_ipv6->GetNAddresses (interface); addressIndex++)
+        {
+          Ipv6InterfaceAddress address = m_ipv6->GetAddress (interface, addressIndex);
+
+          if (address.GetScope() == Ipv6InterfaceAddress::GLOBAL)
+          {
+            m_dodagId = address.GetAddress ();  // TODO change this to add correct dodagId
+            foundGlobal = true;
+            break;
+          }
+        }
+      }
+      if (foundGlobal)
+      {
+        break;
+      }
+    }
+    if (!foundGlobal)
+    {
+      NS_ABORT_MSG ("Root node does not have a global IP");
+    }
   }
   m_isGrounded = true;
   // [RFC 6550, 8.3.1]
+  m_trickleTimer.SetParameters (MilliSeconds(pow(2,m_dioIntervalMin)), m_dioIntervalDoublings, m_dioRedundancyConstant);
   m_trickleTimer.Enable ();
+  m_trickleTimer.InconsistentEvent ();
 }
 
 TypeId RoutingProtocol::GetTypeId (void)
@@ -260,7 +289,68 @@ bool RoutingProtocol::RouteInput (Ptr< const Packet > p,
   LocalDeliverCallback lcb,
   ErrorCallback ecb)
 {
-  return true;
+  NS_LOG_FUNCTION (this << p << header << header.GetSource () << header.GetDestination () << idev);
+  NS_ASSERT (m_ipv6 != 0);
+  // Check if input device supports IP
+  NS_ASSERT (m_ipv6->GetInterfaceForDevice (idev) >= 0);
+  uint32_t iif = m_ipv6->GetInterfaceForDevice (idev);
+  Ipv6Address dst = header.GetDestination ();
+
+  /*if (isPacketForMe (header.GetSource (), iif))
+  {
+    return false;
+  }*/
+
+
+  // Multicast recognition; handle local delivery here
+  if (dst.IsMulticast ())
+  {
+    if (header.GetDestination ().IsLinkLocalMulticast ())
+    {
+      NS_LOG_LOGIC ("Link-local Multicast is not going to be forwarded");
+      return false;
+    }
+    NS_LOG_LOGIC ("Multicast destination");
+    NS_LOG_DEBUG ("TODO RouteInput - multicast fowarding not implemented yet, take inspiration from ipv6-static-routing");
+    return false;
+  }
+
+  if (header.GetDestination ().IsLinkLocal () ||
+      header.GetSource ().IsLinkLocal ())
+  {
+    NS_LOG_LOGIC ("Dropping packet not for me and with src or dst LinkLocal");
+    if (!ecb.IsNull ())
+      {
+        ecb (p, header, Socket::ERROR_NOROUTETOHOST);
+      }
+    return false;
+  }
+
+  // Check if input device supports IP forwarding
+  if (m_ipv6->IsForwarding (iif) == false)
+  {
+    NS_LOG_LOGIC ("Forwarding disabled for this interface");
+    if (!ecb.IsNull ())
+    {
+      ecb (p, header, Socket::ERROR_NOROUTETOHOST);
+    }
+    return true;
+  }
+  // Next, try to find a route
+  NS_LOG_LOGIC ("Unicast destination");
+  Ptr<Ipv6Route> rtentry = Lookup (header.GetDestination (), true);
+
+  if (rtentry != 0)
+  {
+    NS_LOG_LOGIC ("Found unicast destination - calling unicast callback");
+    ucb (idev, rtentry, p, header);  // unicast forwarding callback
+    return true;
+  }
+  else
+  {
+    NS_LOG_LOGIC ("Did not find unicast destination - returning false");
+    return false; // Let other routing protocols try to handle this
+  }
 }
 
 Ptr<Ipv6Route> RoutingProtocol::RouteOutput (Ptr< Packet > p,
@@ -268,8 +358,7 @@ Ptr<Ipv6Route> RoutingProtocol::RouteOutput (Ptr< Packet > p,
   Ptr< NetDevice > oif,
   Socket::SocketErrno & sockerr)
 {
-
-  //TODO 
+  NS_LOG_FUNCTION (this << header << oif);
   Ptr<Ipv6Route> rtentry;
   rtentry = Create<Ipv6Route> ();
 
@@ -336,6 +425,25 @@ bool RoutingProtocol::isPacketForMe (Ipv6Address destinationAddr, uint32_t incom
       return true;
     }
   }
+  return false;
+}
+
+bool RoutingProtocol::isPacketForMe (Ipv6Address destinationAddr)
+{
+  bool forMe = false;
+
+  for (uint32_t interface = 0; interface < m_ipv6->GetNInterfaces (); interface++)
+  {
+    if (m_interfaceExclusions.find (interface) == m_interfaceExclusions.end ())
+    {
+      forMe = isPacketForMe (destinationAddr, interface);
+      if (forMe)
+      {
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -551,6 +659,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
             }else{
               m_isStoring = false;
             }
+            m_trickleTimer.SetParameters (MilliSeconds(pow(2,m_dioIntervalMin)), m_dioIntervalDoublings, m_dioRedundancyConstant);
             m_trickleTimer.Enable ();
           }else
           {
@@ -594,6 +703,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     UpdatePreferredParent ();
   }
 
+
   // add sender as upward route if rank is lower then the nodes rank
   if (m_ocp.DagRank (dioHeader.GetRank ()) < m_ocp.DagRank (m_rank) && m_dodagId == dioHeader.GetDodagId () && m_instanceId == dioHeader.GetRplInstanceId ())
   {
@@ -601,19 +711,31 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     AddRouteToRoutingTable (ipv6Header.GetSource (), incomingInterface, 1, dioHeader.GetDodagId (), dioHeader.GetRplInstanceId (), dioHeader.GetDtsn (), false);
     RplNode newNode = {dioHeader.GetRank (), ipv6Header.GetSource (), incomingInterface, dioHeader.GetDtsn ()};
     auto nodeIter = m_dodagParents.find (newNode);
-    if (nodeIter != m_dodagParents.end () && nodeIter->dtsn != dioHeader.GetDtsn ()) 
+    bool nodeDtsnChanged = false;
+    bool addedParentNode = false;
+    if (nodeIter != m_dodagParents.end () ) 
     {
-      m_dodagParents.erase (nodeIter);
+      // in dodag parents
+      if (nodeIter->dtsn != dioHeader.GetDtsn ())
+      {
+        nodeDtsnChanged = true;
+        //m_dodagParents.erase (nodeIter);
+        nodeIter->dtsn = dioHeader.GetDtsn ();
+      }
+      
+    }else
+    {
+      addedParentNode = true;
+      m_dodagParents.insert (newNode);
     }
-    m_dodagParents.insert (newNode);
-    UpdatePreferredParent ();
+    
 
     // checks if dtsn is updated to include self route information for DAO messages
     for (RplNode daoParent : m_ocp.GetDaoParents (m_dodagParents))
     {
       if (daoParent.address == ipv6Header.GetSource ())
       {
-        if (dioHeader.GetDtsn () > daoParent.dtsn)
+        if (nodeDtsnChanged || addedParentNode)
         {
           m_dtsnChanged = true;
           // for non-storing mode trigger self dtsn update
@@ -624,6 +746,8 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
         }
       }
     }
+
+    UpdatePreferredParent ();
 
     return;
   }
@@ -732,11 +856,13 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   // update routing table
   AddDownwardRoutesToRoutingTable (currentRplTargets, currentTransitInformations, ipv6Header.GetSource (), incomingInterface, 1, daoHeader.GetDaoSequence ());
 
+
   // pass received DAO upward to parents
   if (!m_isRoot && m_preferredParent.rank != INFINITE_RANK)
   {
     if (m_sendDaoEvent.GetUid () == m_sendDaoEvent.INVALID || m_sendDaoEvent.IsExpired ())
     {
+      NS_LOG_DEBUG ("Scheduling new DAO");
       m_sendDaoEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, false);
     }
   }
@@ -789,7 +915,10 @@ void RoutingProtocol::UpdatePreferredParent ()
   if (newPreferredParent != m_preferredParent)
   {
     NS_LOG_LOGIC ("Updating new preferred parent");
-    ClearPreferredParentRoutes ();
+    if (m_preferredParent.rank != INFINITE_RANK)
+    {
+      ClearPreferredParentRoutes ();
+    }
     for(auto iter = m_sentDaos.begin(); iter != m_sentDaos.end();)
     {
       iter->event.Cancel ();
@@ -863,7 +992,7 @@ void RoutingProtocol::ClearPreferredParentRoutes()
   NS_LOG_FUNCTION (this);
   if (m_preferredParent.rank == INFINITE_RANK)
   {
-    NS_LOG_INFO ("No preferred parent set");
+    NS_ABORT_MSG ("No preferred parent set");
   }
 
   NS_ABORT_MSG_IF (m_routingTable.empty (), "Routes are empty");
@@ -976,19 +1105,42 @@ void RoutingProtocol::NotifyInterfaceDown (uint32_t interface)
 }
 void RoutingProtocol::NotifyAddAddress (uint32_t interface, Ipv6InterfaceAddress address)
 {
-  // TODO add sockets when Address is added to active interface
+  NS_LOG_FUNCTION (this << interface << address);
 }
 void RoutingProtocol::NotifyRemoveAddress (uint32_t interface, Ipv6InterfaceAddress address)
 {
-  // TODO remove sockets when Address is removed from interface
-  // TODO also remove routing table entries
+  NS_LOG_FUNCTION (this << interface << address);
 }
 void RoutingProtocol::NotifyAddRoute (Ipv6Address dst, Ipv6Prefix mask, Ipv6Address nextHop, uint32_t interface, Ipv6Address prefixToUse)
 {}
 void RoutingProtocol::NotifyRemoveRoute (Ipv6Address dst, Ipv6Prefix mask, Ipv6Address nextHop, uint32_t interface, Ipv6Address prefixToUse)
 {}
 void RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit) const
-{}
+{
+*stream->GetStream () << "Node: " << m_ipv6->GetObject<Node> ()->GetId ()
+                        << "; Time: " << Now ().As (unit)
+                        << ", Local time: " << m_ipv6->GetObject<Node> ()->GetLocalTime ().As (unit)
+                        << ", RPL Routing table" << std::endl;
+
+  for (RplRoutingTableEntry const& route : m_routingTable)
+  {
+    route.Print (*stream->GetStream ());
+  }
+  *stream->GetStream () << std::endl;
+
+}
+
+void RoutingProtocol::PrintRoutingTable (std::ostream &os) const
+{
+os << "Node: " << m_ipv6->GetObject<Node> ()->GetId ()
+                        << ", RPL Routing table" << std::endl;
+  for (RplRoutingTableEntry const& route : m_routingTable)
+  {
+    route.Print (os);
+  }
+  os << std::endl;
+}
+
 
 void RoutingProtocol::AddRouteToRoutingTable (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward)
 {
@@ -1099,9 +1251,15 @@ void RoutingProtocol::RegisterSockets (uint32_t interface)
 
 void RoutingProtocol::SendOnAllInterfaces (Ptr<Packet> packet, const Address &toAddress)
 {
+  NS_LOG_FUNCTION (this << packet << toAddress);
   for (SocketListI iter = m_unicastSocketList.begin (); iter != m_unicastSocketList.end (); iter++ )
   {
     uint32_t interface = iter->second;
+
+    if (interface == 0)
+    {
+      continue;
+    }
 
     if (m_interfaceExclusions.find (interface) == m_interfaceExclusions.end ())
     {
@@ -1114,7 +1272,7 @@ void RoutingProtocol::SendOnAllInterfaces (Ptr<Packet> packet, const Address &to
 Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<NetDevice> interface)
 {
   NS_LOG_FUNCTION (this << dst << setSource << interface);
-  Ptr<Ipv6Route> rtentry = Create<Ipv6Route> ();
+  Ptr<Ipv6Route> rtentry = 0;
   // when sending on link-local multicast, there have to be interface specified
   if (dst.IsLinkLocalMulticast ())
   {
@@ -1126,15 +1284,31 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
     rtentry->SetOutputDevice (interface);
     return rtentry;
   }
-  if (dst.IsLinkLocal ())
+  
+  if (isPacketForMe (dst))
   {
-    NS_ASSERT_MSG (interface, "Try to send on link-local unicast address " << dst << ", and no interface " << interface << " index is given!");
     rtentry = Create<Ipv6Route> ();
-    rtentry->SetSource (m_ipv6->SourceAddressSelection (m_ipv6->GetInterfaceForDevice (interface), dst));
+    rtentry->SetSource (dst);
     rtentry->SetDestination (dst);
     rtentry->SetGateway (Ipv6Address::GetZero ());
     rtentry->SetOutputDevice (interface);
     return rtentry;
+  }
+
+  if (dst.IsLinkLocal ())
+  {
+    if (!interface)
+    {
+      NS_ASSERT_MSG (interface, "Try to send on link-local unicast address " << dst << ", and no interface " << interface << " index is given!");
+    }else
+    {
+      rtentry = Create<Ipv6Route> ();
+      rtentry->SetSource (m_ipv6->SourceAddressSelection (m_ipv6->GetInterfaceForDevice (interface), dst));
+      rtentry->SetDestination (dst);
+      rtentry->SetGateway (Ipv6Address::GetZero ());
+      rtentry->SetOutputDevice (interface);
+      return rtentry;
+    }
   }
 
   // search routes first
@@ -1153,8 +1327,20 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
   if (m_isRoot)
   {
     NS_ABORT_MSG ("RoutingProtocol::Lookup (...): TODO implement where root shall send packets that are not in the DODAG!");
-  }else{
-    return CreateRouteFromTableEntry (m_preferredParentRoute, setSource, dst);
+    return rtentry;
+  }
+  else
+  {
+    if (m_preferredParent.rank != INFINITE_RANK)
+    {
+      return CreateRouteFromTableEntry (m_preferredParentRoute, setSource, dst);
+    }
+    else
+    {
+      NS_LOG_LOGIC ("No preferred parent set - returning empty route");
+      return rtentry;
+    }
+    
   }
   
 }
@@ -1245,7 +1431,6 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
   }
   
   // send DAO
-  NS_LOG_LOGIC ("RPL: Send DAO to DAO parents");
   Ptr<Packet> packet = Create<Packet> ();
   uint8_t d = (m_instanceId & 0b10000000) >> 7; // set the d flag when the local RplInstanceID is used
 
@@ -1312,6 +1497,7 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
   // Send to all dao parents (currently only the preferred parent)
   for (RplNode daoParent : m_ocp.GetDaoParents (m_dodagParents))
   {
+    NS_LOG_LOGIC ("RPL: Send DAO to DAO parent " << daoParent.address);
     SendOnAllInterfaces (packet, Inet6SocketAddress (daoParent.address));
   }
 
