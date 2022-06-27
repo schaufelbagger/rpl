@@ -26,27 +26,34 @@
 #include "ns3/mobility-module.h"
 #include "ns3/propagation-module.h"
 #include "ns3/sixlowpan-module.h"
+#include "ns3/applications-module.h"
 
 #include "ns3/lr-wpan-module.h"
 #include "ns3/yans-wifi-helper.h"
 
 //#define USE_WIFI
 #define USE_SIXLOWPAN
-//#define USE_APPLICATION
+#define USE_APPLICATION
 
 using namespace ns3;
 
 
 int main (int argc, char *argv[])
 {
+
+  LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
+  //LogComponentEnable ("Ipv6L3Protocol", LOG_LEVEL_LOGIC);
+  //LogComponentEnable ("Icmpv6L4Protocol", LOG_LEVEL_LOGIC);
+
   // parameters
   bool verbose = true;
-  int numberOfNodes = 2;
+  int numberOfNodes = 3;
   // distance of nodes
-  int step = 20;
+  int step = 100;
+  Time simulationTime = Seconds (10);
 #ifdef USE_APPLICATION
   uint32_t packetSize = 10;
-  uint32_t maxPacketCount = 5;
+  //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
 
@@ -62,6 +69,12 @@ int main (int argc, char *argv[])
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
 
   cmd.Parse (argc,argv);
+
+  Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
+  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
+  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (0));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
+  Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
 
   NS_LOG_UNCOND("rpl example\n\n");
 
@@ -106,7 +119,8 @@ int main (int argc, char *argv[])
 
 #ifdef USE_SIXLOWPAN
   SixLowPanHelper sixlowpan;
-  devices = sixlowpan.Install (lrwpanDevices ); 
+  devices = sixlowpan.Install (lrwpanDevices );
+  sixlowpan.AddContext (devices, 0, Ipv6Prefix ("2001:2::"), Time (Hours (2)));
 #else
   devices = lrwpanDevices;
 #endif
@@ -114,9 +128,12 @@ int main (int argc, char *argv[])
   // install TCP/IP & RPL
   RplHelper rpl;
   // you can configure RPL attributes here using rpl.Set(name, value)
+
   InternetStackHelper stack;
-  stack.SetRoutingHelper(rpl);
-  stack.Install(nodes);
+  stack.SetIpv4StackInstall(false);
+  stack.SetRoutingHelper (rpl);
+  stack.Install (nodes);
+  //rpl.AssignDisMop (NodeContainer (nodes.Get (1)) , rpl::DIS_MOP_SEND, Seconds (1), 5, RPL_DEFAULT_INSTANCE, rpl::MOP_STORING_NO_MULTICAST);
   rpl.AssignRoot (NodeContainer (nodes.Get (0)) );
 
 
@@ -125,24 +142,75 @@ int main (int argc, char *argv[])
   Ipv6InterfaceContainer deviceInterfaces;
   deviceInterfaces = ipv6.Assign (devices);
 
+  for (int i = 0; i< numberOfNodes; ++i)
+  {
+    deviceInterfaces.SetForwarding (i, true);
+  }
+  
+
+
+  /*<Node> node;
+  for (NodeContainer::Iterator i = nodes.Begin (); i != nodes.End (); ++i)
+  {
+    node = (*i);
+    Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
+    NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
+    Ptr<Ipv6RoutingProtocol> proto = ipv6->Get
+  }*/
+
 
   // ---------------- Install Applications -------------------------------
-#ifdef USE_APPLICATION
+/*#ifdef USE_APPLICATION
   Ping6Helper ping6;
 
+#ifdef USE_SIXLOWPAN
   ping6.SetLocal (deviceInterfaces.GetAddress (0, 1));
-  ping6.SetRemote (deviceInterfaces.GetAddress (1, 1));
-
+  ping6.SetRemote (deviceInterfaces.GetAddress (numberOfNodes-1, 1));
+#else
+  ping6.SetLocal (deviceInterfaces.GetAddress (0, 0));
+  ping6.SetRemote (deviceInterfaces.GetAddress (numberOfNodes-1, 0));
+#endif
   ping6.SetAttribute ("MaxPackets", UintegerValue (maxPacketCount));
   ping6.SetAttribute ("Interval", TimeValue (interPacketInterval));
   ping6.SetAttribute ("PacketSize", UintegerValue (packetSize));
   ApplicationContainer apps = ping6.Install (nodes.Get (0));
 
-  apps.Start (Seconds (1.0));
-  apps.Stop (Seconds (5.0));
-#endif
+  apps.Start (Seconds (5.0));
+  apps.Stop (simulationTime);
+#endif*/
 
-  Simulator::Stop (Seconds (5));
+  // Add random application to generate (passive) traffic
+  UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(deviceInterfaces.GetAddress(numberOfNodes-1,1), 6000);
+  // Multicast disabled for now!
+  //UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(Ipv6Address (IPV6_GROUP_ADDR), 6000);
+  UdpEchoServerHelper udpServerHelper = UdpEchoServerHelper(6000);
+  
+  // Add random app to three nodes:
+  for (int n : {0})
+  {
+    udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (numberOfNodes-1,1)));
+    udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
+    udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
+    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (10)));
+    ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
+
+    apps.Start (Seconds (5.0));
+    apps.Stop (simulationTime);
+  }
+
+  for (int n : {numberOfNodes-1})
+  {
+    udpServerHelper.SetAttribute ("Port", UintegerValue (6000));
+    ApplicationContainer apps =  udpServerHelper.Install(nodes.Get(n));
+    apps.Start (Seconds (1.0));
+    apps.Stop (simulationTime);
+  }
+
+
+
+  Simulator::Stop (simulationTime);
+  
+  lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
   
   Simulator::Run ();
   Simulator::Destroy ();
