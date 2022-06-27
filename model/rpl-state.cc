@@ -46,6 +46,19 @@ m_metric (0)
 {
 }
 
+void RplRoutingTableEntry::Print (std::ostream &os) const
+{
+  os << "( ";
+  os << "Destination " << GetDest () << ", ";
+  os << "Next Hop " << GetGateway () << ", ";
+  os << "Interface " << GetInterface () << ", ";
+  os << "Metric " << +m_metric << ", ";
+  os << "DODAG ID " << +m_metric << ", ";
+  os << "Instance ID " << +m_instanceId << ", ";
+  os << "DTSN " << +m_dtsn << ", ";
+  os << "Lifetime " << +m_lifetime << ", ";
+  os << "Downward " << +m_downward << ")" << std::endl;
+}
 
 
 }

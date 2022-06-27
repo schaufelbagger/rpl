@@ -36,7 +36,7 @@ struct RplNode
   uint16_t rank;
   Ipv6Address address;
   uint32_t interface;
-  uint8_t dtsn;
+  mutable uint8_t dtsn;
   bool operator<(const RplNode& rhs) const
   {
     return std::tie(rank, interface, address) < std::tie(rhs.rank, rhs.interface, rhs.address);
@@ -59,6 +59,8 @@ public:
   RplRoutingTableEntry (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface);
 
   RplRoutingTableEntry (Ipv6Address dest, uint32_t interface);
+
+  void Print (std::ostream &os) const;
 
   /**
    * \brief Set the Metric
