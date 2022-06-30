@@ -260,8 +260,10 @@ private:
 
   void Start ();
   void InitRoot ();
-  bool isPacketForMe (Ipv6Address destinationAddr, uint32_t incomingInterface);
-  bool isPacketForMe (Ipv6Address destinationAddr);
+  bool isRplAllAddress (Ipv6Address addr);
+  bool isMyAddress (Ipv6Address addr, Ptr<NetDevice> interface);
+  bool isMyAddress (Ipv6Address addr, uint32_t interface);
+  bool isMyAddress (Ipv6Address addr);
   /**
    * Receive and process control packet
    * \param socket input socket

@@ -296,7 +296,7 @@ bool RoutingProtocol::RouteInput (Ptr< const Packet > p,
   uint32_t iif = m_ipv6->GetInterfaceForDevice (idev);
   Ipv6Address dst = header.GetDestination ();
 
-  /*if (isPacketForMe (header.GetSource (), iif))
+  /*if (isMyAddress (header.GetSource (), iif))
   {
     return false;
   }*/
@@ -412,15 +412,35 @@ void RoutingProtocol::Start ()
 {
 }
 
-bool RoutingProtocol::isPacketForMe (Ipv6Address destinationAddr, uint32_t incomingInterface)
+bool RoutingProtocol::isRplAllAddress (Ipv6Address addr)
 {
-  if (destinationAddr == Ipv6Address (RPL_ALL_NODE))
+  if (addr == Ipv6Address (RPL_ALL_NODE))
   {
     return true;
   }
-  for (uint32_t addressIndex = 0; addressIndex < m_ipv6->GetNAddresses (incomingInterface); addressIndex++)
+  return false;
+}
+
+bool RoutingProtocol::isMyAddress (Ipv6Address addr, Ptr<NetDevice> dev)
+{
+  // if interface is not given, search all interfaces for the address
+  if (!dev)
   {
-    if (destinationAddr == m_ipv6->GetAddress (incomingInterface, addressIndex).GetAddress ())
+    return isMyAddress (addr);
+  }
+  else
+  {
+    uint32_t interface = m_ipv6->GetInterfaceForDevice (dev);
+    return isMyAddress (addr, interface);
+  }
+}
+
+bool RoutingProtocol::isMyAddress (Ipv6Address addr, uint32_t interface)
+{
+
+  for (uint32_t addressIndex = 0; addressIndex < m_ipv6->GetNAddresses (interface); addressIndex++)
+  {
+    if (addr == m_ipv6->GetAddress (interface, addressIndex).GetAddress ())
     {
       return true;
     }
@@ -428,7 +448,7 @@ bool RoutingProtocol::isPacketForMe (Ipv6Address destinationAddr, uint32_t incom
   return false;
 }
 
-bool RoutingProtocol::isPacketForMe (Ipv6Address destinationAddr)
+bool RoutingProtocol::isMyAddress (Ipv6Address addr)
 {
   bool forMe = false;
 
@@ -436,7 +456,7 @@ bool RoutingProtocol::isPacketForMe (Ipv6Address destinationAddr)
   {
     if (m_interfaceExclusions.find (interface) == m_interfaceExclusions.end ())
     {
-      forMe = isPacketForMe (destinationAddr, interface);
+      forMe = isMyAddress (addr, interface);
       if (forMe)
       {
         return true;
@@ -446,6 +466,7 @@ bool RoutingProtocol::isPacketForMe (Ipv6Address destinationAddr)
 
   return false;
 }
+
 
 void RoutingProtocol::Receive (Ptr<Socket> socket)
 {
@@ -489,7 +510,7 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
   Ipv6Header ipv6Header;
   packet->RemoveHeader (ipv6Header);
 
-  if (!isPacketForMe (ipv6Header.GetDestination (), ipInterfaceIndex))
+  if (!isRplAllAddress (ipv6Header.GetDestination ()) && !isMyAddress (ipv6Header.GetDestination (), ipInterfaceIndex))
   {
     NS_LOG_LOGIC ("Packet Destination Address is neither RPL All Address or a IP address on this node - dropping packet");
     return;
@@ -1206,13 +1227,19 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
     return rtentry;
   }
   
-  if (isPacketForMe (dst))
+  if (isMyAddress (dst, interface))
   {
     rtentry = Create<Ipv6Route> ();
     rtentry->SetSource (dst);
     rtentry->SetDestination (dst);
     rtentry->SetGateway (Ipv6Address::GetZero ());
-    rtentry->SetOutputDevice (interface);
+    if (interface)
+    {
+      rtentry->SetOutputDevice (interface);
+    }else
+    {
+      rtentry->SetOutputDevice (m_ipv6->GetNetDevice (m_ipv6->GetInterfaceForAddress (dst)));
+    }
     return rtentry;
   }
 
@@ -1220,7 +1247,9 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
   {
     if (!interface)
     {
-      NS_ASSERT_MSG (interface, "Try to send on link-local unicast address " << dst << ", and no interface " << interface << " index is given!");
+      //NS_ASSERT_MSG (interface, "Try to send on link-local unicast address " << dst << ", and no interface " << interface << " index is given!");
+      NS_LOG_DEBUG ("Try to send on link-local unicast address " << dst << ", and no interface is given! -> return no route");
+      return rtentry;
     }else
     {
       rtentry = Create<Ipv6Route> ();
