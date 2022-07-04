@@ -141,6 +141,7 @@ namespace rpl {
 
   void RplRoutingTable::AddDownwardRoutes (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t daoSequence, Ipv6Address dodagId, uint8_t instanceId, bool isStoring)
   {
+    NS_LOG_FUNCTION (this);
     if (!transitInformations.empty ())
     {
       if (isStoring && transitInformations.size () > 1)
@@ -161,6 +162,10 @@ namespace rpl {
           NS_ABORT_MSG ("TODO implement routing table entry in non-storing mode");
         }
       }
+    }
+    else
+    {
+      NS_ABORT_MSG ("Transit Information was empty");
     }
   }
 
