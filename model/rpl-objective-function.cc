@@ -38,17 +38,21 @@ RplNode RplObjectiveFunction::GetPreferredParent (std::set<RplNode> parents)
 {
   NS_ABORT_MSG_IF (parents.empty (), "No parent in set while trying to find the preferred parent");
   RplNode preferredParent;
+  uint16_t rankWithPrefParent;
   // take the first parent
   for (const RplNode iter_parent : parents)
   {
     preferredParent = iter_parent;
+    rankWithPrefParent = CalculateRank (preferredParent.rank);
     break;
   }
   for(RplNode node : parents) 
   {
-    if (std::tie(node.rank, node.interface) < std::tie(preferredParent.rank, preferredParent.interface))
+    uint16_t rankWithNodeParent = CalculateRank (node.rank);
+    if (std::tie(rankWithNodeParent, node.interface) < std::tie(rankWithPrefParent, preferredParent.interface))
     {
       preferredParent = node;
+      rankWithPrefParent = CalculateRank (preferredParent.rank);
     }
   }
   return preferredParent;
