@@ -277,6 +277,11 @@ TypeId RoutingProtocol::GetTypeId (void)
   .SetGroupName ("Rpl")
   .AddConstructor<RoutingProtocol> ()
   //.AddAttribute() // TODO
+  .AddTraceSource ("UpdatedPrefParent",
+              "preferered parent updates to trace",
+              MakeTraceSourceAccessor (&RoutingProtocol::m_updatedPrefParentTrace),
+              "ns3::rpl::RoutingProtocol::updatedPrefParentCallback")
+
   ;
   return tid;
 }
@@ -937,6 +942,7 @@ void RoutingProtocol::UpdatePreferredParent ()
   if (newPreferredParent != m_preferredParent)
   {
     NS_LOG_LOGIC ("Updating new preferred parent");
+    m_updatedPrefParentTrace (newPreferredParent);
     if (m_preferredParent.rank != INFINITE_RANK)
     {
       ClearPreferredParentRoutes ();
@@ -958,6 +964,7 @@ void RoutingProtocol::UpdatePreferredParent ()
 
     if (m_mop != MOP_NO_DOWNWARD_ROUTES)
     {
+      m_dtsnChanged = true;
       if (m_sendDaoEvent.GetUid () == m_sendDaoEvent.INVALID || m_sendDaoEvent.IsExpired ())
       {
         m_sendDaoEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, false);
@@ -1394,25 +1401,28 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
     // in storing mode add multiple RPL Target Options and a singe Transit Information without parent address, since it is always this node
     RplHeaderOption transitInformation;
     
-    // TODO RPL currently does not support learning nodes through different protocols
-    uint8_t e = 0;
-    // TODO add logic for path control field
-    uint8_t pathControl = 0;
-    uint8_t pathLifetime;
-    if (isNoPath)
-    {
-      pathLifetime = 0;
-    }else{
-      pathLifetime = m_defaultLifetime;
-    }
-    transitInformation.SetTransitInformation (e, pathControl, m_pathSequence++, pathLifetime);
 
-    packet->AddHeader (transitInformation);
 
     // Add all global IP addresses As RPL Target when triggered from parents DIO (DTSN)
     if (m_dtsnChanged)
     {
       m_dtsnChanged = false;  // reset dtsn change
+
+      // TODO RPL currently does not support learning nodes through different protocols
+      uint8_t e = 0;
+      // TODO add logic for path control field
+      uint8_t pathControl = 0;
+      uint8_t pathLifetime;
+      if (isNoPath)
+      {
+        pathLifetime = 0;
+      }else{
+        pathLifetime = m_defaultLifetime;
+      }
+      transitInformation.SetTransitInformation (e, pathControl, m_pathSequence++, pathLifetime);
+
+      packet->AddHeader (transitInformation);
+      
       for (uint32_t interface = 0; interface < m_ipv6->GetNInterfaces (); interface++)
       {
         if (m_interfaceExclusions.find (interface) == m_interfaceExclusions.end ())

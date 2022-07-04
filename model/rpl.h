@@ -25,7 +25,7 @@
 #include "ns3/node.h"
 #include "ns3/timer.h"
 #include "ns3/trickle-timer.h"
-
+#include "ns3/traced-callback.h"
 
 #include "rpl-header.h"
 #include "rpl-header-option.h"
@@ -254,7 +254,7 @@ public:
 
 
 
-
+  TracedCallback<RplNode> m_updatedPrefParentTrace;
 
 private:
 
