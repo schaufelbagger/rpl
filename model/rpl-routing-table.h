@@ -167,6 +167,14 @@ public:
   RplRoutingTable ();
 
   bool Empty () const;
+  /**
+   * \brief removes routes from the routing table where destination or gateway (or both) are found on the specified interface
+   *        using the any-address will not remove the respective entry
+   * 
+   * \param dst destination of the route entry
+   * \param gateway next hop of the route entry
+   * \param interface interface of the route entry
+   */
   void RemoveRoutes (Ipv6Address dst = Ipv6Address("::"), Ipv6Address gateway = Ipv6Address("::"), uint32_t interface = 0);
   void RemoveDownwardRoutes (Ipv6Address dodagId, uint8_t instanceId);
   void AddRoute (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, uint8_t lifetime, bool downward);
