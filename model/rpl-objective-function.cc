@@ -34,18 +34,12 @@ m_maxRankIncrease (maxRankIncrease)
 {
 }
 
-RplNode RplObjectiveFunction::GetPreferredParent (std::set<RplNode> parents)
+RplNode RplObjectiveFunction::GetPreferredParent (std::set<RplNode> parents, RplNode currentPreferredParent)
 {
   NS_ABORT_MSG_IF (parents.empty (), "No parent in set while trying to find the preferred parent");
-  RplNode preferredParent;
-  uint16_t rankWithPrefParent;
-  // take the first parent
-  for (const RplNode iter_parent : parents)
-  {
-    preferredParent = iter_parent;
-    rankWithPrefParent = CalculateRank (preferredParent.rank);
-    break;
-  }
+  RplNode preferredParent = currentPreferredParent;
+  uint16_t rankWithPrefParent = CalculateRank (currentPreferredParent.rank);
+
   for(RplNode node : parents) 
   {
     uint16_t rankWithNodeParent = CalculateRank (node.rank);
@@ -57,12 +51,7 @@ RplNode RplObjectiveFunction::GetPreferredParent (std::set<RplNode> parents)
   }
   return preferredParent;
 }
-std::set<RplNode> RplObjectiveFunction::GetDaoParents (std::set<RplNode> parents)
-{
-  std::set<RplNode> daoParents;
-  daoParents.insert (GetPreferredParent (parents));
-  return daoParents;
-}
+
 
 void RplObjectiveFunction::ProcessingDio (RplObjectiveCodePoint_e type, uint16_t minHopRankIncrease, uint16_t maxRankIncrease)
 {
@@ -87,9 +76,15 @@ void RplObjectiveFunction::CalculateRankIncrease ()
 
 uint16_t RplObjectiveFunction::CalculateRank (uint16_t preferredParentRank)
 {
-  // TODO change, use ETX
+  // use ETX
   uint16_t rank;
   rank = preferredParentRank + m_rankIncrease;
+
+  // check for overflow
+  if (preferredParentRank > rank)
+  {
+    return INFINITE_RANK;
+  }
 
   return rank;
 }

@@ -68,8 +68,7 @@ public:
     return m_type;
   }
 
-  RplNode GetPreferredParent (std::set<RplNode> parents);
-  std::set<RplNode> GetDaoParents (std::set<RplNode> parents);
+  RplNode GetPreferredParent (std::set<RplNode> parents, RplNode currentPreferredParent);
   void ProcessingDio (RplObjectiveCodePoint_e type, uint16_t minHopRankIncrease, uint16_t maxRankIncrease);
   void ProvideDagInformation ();
   void TriggeredUpdates ();
