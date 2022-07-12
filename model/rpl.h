@@ -137,6 +137,7 @@ public:
   void NotifyRemoveRoute (Ipv6Address dst, Ipv6Prefix mask, Ipv6Address nextHop, uint32_t interface, Ipv6Address prefixToUse = Ipv6Address::GetZero ());
   void PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::Unit unit = Time::S) const;
   void PrintRoutingTable  (std::ostream &os) const;
+  void PrintRoutingTable  () const {PrintRoutingTable (std::cout);};
 
   /**
    * \brief Set if node is Root
@@ -270,12 +271,15 @@ private:
    */
   void Receive (Ptr<Socket> socket);
 
+  void ReceiveDu (Ptr<Packet> packet, Ipv6Header, RplIcmpv6Header rplIcmpv6Header);
   void ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header);
   void ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uint32_t incomingInterface);
   void ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uint32_t incomingInterface);
   void ReceiveDaoAck (Ptr<Packet> packet, Ipv6Header ipv6Header);
 
   void UpdatePreferredParent ();
+  void UpdateDaoParents ();
+  void DeleteParent (Ipv6Address address);
   /**
    * \brief remove parents with higher rank
    */
@@ -403,7 +407,7 @@ private:
   /// DODAG state
   //std::set<RplNode> m_candidateNeighbors; // not used, DODAG Parents are directly added from DIOs
   std::set<RplNode> m_dodagParents;
-  //std::set<RplNode> m_daoParents;
+  std::set<RplNode> m_daoParents;
   RplNode m_preferredParent = {INFINITE_RANK, Ipv6Address ("::"), 0,0};
   bool m_dtsnChanged;
 

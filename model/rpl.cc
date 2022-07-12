@@ -505,13 +505,6 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
   }
   uint8_t hopLimit = hoplimitTag.GetHopLimit ();*/
 
-  int32_t interfaceForAddress = m_ipv6->GetInterfaceForAddress (senderAddress);
-  if (interfaceForAddress != -1)
-  {
-    NS_LOG_LOGIC ("Ignoring a packet sent by myself.");
-    return;
-  }
-
   Ipv6Header ipv6Header;
   packet->RemoveHeader (ipv6Header);
 
@@ -523,8 +516,25 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
 
   NS_ABORT_MSG_UNLESS (ipv6Header.GetNextHeader () == Ipv6Header::IPV6_ICMPV6, "The received Packet is not an ICMPv6 packet");
   RplIcmpv6Header rplIcmpv6Header;
-
   packet->RemoveHeader (rplIcmpv6Header);
+
+
+  // ignore packages sent by myself except ICMPv6 destination unreachable messages
+  int32_t interfaceForAddress = m_ipv6->GetInterfaceForAddress (senderAddress);
+  if (interfaceForAddress != -1)
+  {
+    if (rplIcmpv6Header.GetType () == 1)
+    {
+      ReceiveDu (packet, ipv6Header, rplIcmpv6Header);
+      return;
+    }else
+    {
+      NS_LOG_LOGIC ("Ignoring a packet sent by myself.");
+      return;
+    }
+
+  }
+
   if (rplIcmpv6Header.GetType () != 155)
   {
     NS_LOG_INFO ("Received ICMPv6 Message with type other than 155 which is " << +rplIcmpv6Header.GetType ());
@@ -550,6 +560,61 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
     default:
       NS_ABORT_MSG ("Receiving base message with the invalid code " << +rplIcmpv6Header.GetCode ());
   }
+}
+
+void RoutingProtocol::ReceiveDu (Ptr<Packet> packet, Ipv6Header ipv6Header, RplIcmpv6Header rplIcmpv6Header)
+{
+  NS_LOG_FUNCTION (this << +packet << ipv6Header);
+  NS_LOG_LOGIC ("Received Destination Unreachable from " << ipv6Header.GetSource ());
+  uint16_t payloadLength;
+  uint8_t code = rplIcmpv6Header.GetCode ();
+  // check weather it is reasonable to remove the destination from the routing table by the code of the destination unreachable 
+  if (code == 4 || code == 7 || code == 8)
+  {
+    NS_LOG_INFO ("Unreasonable to remove destination from routing table");
+    return;
+  }
+
+  payloadLength = ipv6Header.GetPayloadLength () - 4;
+
+  NS_ASSERT_MSG (payloadLength >= 4, "Malformed Destination Unreachable packet");
+  // remove unused bits from destination unreachable message
+  // RFC 4443, 3.1
+  packet->RemoveAtStart (4);
+  payloadLength = payloadLength - 4;
+
+  
+  Ipv6Header invokingPacketIpv6Header;
+  NS_ASSERT_MSG (payloadLength >= invokingPacketIpv6Header.GetSerializedSize (), "ipv6Header larger than payload left");
+  packet->RemoveHeader (invokingPacketIpv6Header);
+
+  Ptr<Ipv6Route> rtentry;
+  Ptr<NetDevice> interface = 0;
+  rtentry = Lookup (invokingPacketIpv6Header.GetDestination (), false, interface);
+
+  if (!rtentry)
+  {
+    NS_LOG_LOGIC ("No route to this destination found");
+    return;
+  }
+
+  Ipv6Address unreachableAddress;
+  uint32_t interfaceForUnreachableAddress = m_ipv6->GetInterfaceForDevice (rtentry->GetOutputDevice ());
+  if (rtentry->GetGateway () == Ipv6Address::GetZero () || rtentry->GetGateway ().IsAny ())
+  {
+    unreachableAddress = rtentry->GetDestination ();
+  }else
+  {
+    unreachableAddress = rtentry->GetGateway ();
+  }
+
+  // remove routes where destination or next Hop is the unreachable address
+  m_routingTable.RemoveRoutes (unreachableAddress, unreachableAddress, interfaceForUnreachableAddress);
+  if (!m_isRoot)
+  {
+    DeleteParent (unreachableAddress);
+  }
+
 }
 
 void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
@@ -726,7 +791,6 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   {
     NS_LOG_LOGIC ("INFINITE_RANK is advertised from a preferred parent - delete preferred parent and remove it from candidate parents");
     DeletePreferredParent ();
-    UpdatePreferredParent ();
   }
 
 
@@ -757,7 +821,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     
 
     // checks if dtsn is updated to include self route information for DAO messages
-    for (RplNode daoParent : m_ocp.GetDaoParents (m_dodagParents))
+    for (RplNode daoParent : m_daoParents)
     {
       if (daoParent.address == ipv6Header.GetSource ())
       {
@@ -774,6 +838,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     }
 
     UpdatePreferredParent ();
+    
 
     return;
   }
@@ -810,7 +875,7 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
 
   if (!m_isRoot)
   {
-    for (RplNode daoParent : m_ocp.GetDaoParents (m_dodagParents))
+    for (RplNode daoParent : m_daoParents)
     {
       if (daoParent.address == ipv6Header.GetSource ())
       {
@@ -932,14 +997,14 @@ void RoutingProtocol::UpdatePreferredParent ()
   }
   
 
-  RplNode newPreferredParent = m_ocp.GetPreferredParent (m_dodagParents);
+  RplNode newPreferredParent = m_ocp.GetPreferredParent (m_dodagParents, m_preferredParent);
 
   if (newPreferredParent.rank == INFINITE_RANK) 
   {
     NS_ABORT_MSG ("Objective function couldn't select preferred parent");
   }
 
-  if (newPreferredParent != m_preferredParent)
+  if (newPreferredParent.address != m_preferredParent.address)
   {
     NS_LOG_LOGIC ("Updating new preferred parent");
     m_updatedPrefParentTrace (newPreferredParent);
@@ -986,6 +1051,15 @@ void RoutingProtocol::UpdatePreferredParent ()
     NS_LOG_DEBUG ("Setting Rank to " << +m_ocp.DagRank (m_rank));
     RemoveObsoleteParents ();
   }
+
+  UpdateDaoParents ();
+}
+
+void RoutingProtocol::UpdateDaoParents ()
+{
+  std::set<RplNode> daoParents;
+  daoParents.insert (m_preferredParent);
+  m_daoParents = daoParents;
 }
 
 void RoutingProtocol::RemoveObsoleteParents ()
@@ -1004,6 +1078,31 @@ void RoutingProtocol::RemoveObsoleteParents ()
   }
 }
 
+void RoutingProtocol::DeleteParent (Ipv6Address address)
+{
+  NS_LOG_FUNCTION (this << address);
+  if (m_dodagId.IsAny ()) 
+  {
+    NS_ABORT_MSG ("No preferred parent set");
+  }
+  for(auto iter = m_dodagParents.begin(); iter != m_dodagParents.end();)
+  {
+    if((*iter).address == address)
+    {
+      iter = m_dodagParents.erase(iter);
+    }
+    else
+    {
+      ++iter;
+    }
+  }
+  if (address == m_preferredParent.address)
+  {
+    DeletePreferredParent ();
+  }
+
+}
+
 void RoutingProtocol::DeletePreferredParent ()
 {
   NS_LOG_FUNCTION (this);
@@ -1014,6 +1113,7 @@ void RoutingProtocol::DeletePreferredParent ()
   ClearPreferredParentRoutes();
   m_dodagParents.erase(m_preferredParent);
   m_preferredParent = {INFINITE_RANK, Ipv6Address ("::"), 0};
+  UpdatePreferredParent ();
 }
 
 void RoutingProtocol::ClearPreferredParentRoutes()
@@ -1460,7 +1560,7 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
   packet->AddHeader (rplIcmpv6Header);
 
   // Send to all dao parents (currently only the preferred parent)
-  for (RplNode daoParent : m_ocp.GetDaoParents (m_dodagParents))
+  for (RplNode daoParent : m_daoParents)
   {
     NS_LOG_LOGIC ("RPL: Send DAO to DAO parent " << daoParent.address);
     SendOnAllInterfaces (packet, Inet6SocketAddress (daoParent.address));
@@ -1502,10 +1602,10 @@ void RoutingProtocol::ResendDao (uint8_t daoSequence)
       {
         // RFC 18.2.6.
         NS_LOG_LOGIC ("Send No-Path Dao to parent, as he is not reachable");
-        m_sendDaoNoPathEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, true);
+        SendDao (m_daoSequence++, true);
+        //m_sendDaoNoPathEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, true);
         iter = m_sentDaos.erase(iter);
         DeletePreferredParent ();
-        UpdatePreferredParent ();
       }
     }
     else
