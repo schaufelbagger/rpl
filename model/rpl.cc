@@ -276,7 +276,11 @@ TypeId RoutingProtocol::GetTypeId (void)
   .SetParent<Ipv6RoutingProtocol> ()
   .SetGroupName ("Rpl")
   .AddConstructor<RoutingProtocol> ()
-  //.AddAttribute() // TODO
+  .AddAttribute ("MaxDaoParents",
+                "Upper bound for number of DAO parents",
+                UintegerValue (3),
+                MakeUintegerAccessor (&RoutingProtocol::m_maxDaoParents),
+                MakeUintegerChecker<uint8_t>())
   .AddTraceSource ("UpdatedPrefParent",
               "preferered parent updates to trace",
               MakeTraceSourceAccessor (&RoutingProtocol::m_updatedPrefParentTrace),
@@ -472,6 +476,18 @@ bool RoutingProtocol::isMyAddress (Ipv6Address addr)
   return false;
 }
 
+
+bool RoutingProtocol::isDodagParent (Ipv6Address addr, uint32_t interface)
+{
+  for (RplNode dodagParent : m_dodagParents)
+  {
+    if (addr == dodagParent.address && interface == dodagParent.interface)
+    {
+      return true;
+    }
+  }
+  return false;
+}
 
 void RoutingProtocol::Receive (Ptr<Socket> socket)
 {
@@ -786,69 +802,74 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     SendOnAllInterfaces (packet, Inet6SocketAddress (ipv6Header.GetSource ()));
     return;
   }
+  
   // check for route poisoning, then delete parent from upward routes and as preferred parent
-  if (!m_dodagId.IsAny () && dioHeader.GetRank () == INFINITE_RANK && m_preferredParent.address == ipv6Header.GetSource ())
+  if (!m_dodagId.IsAny () && dioHeader.GetRank () == INFINITE_RANK && isDodagParent (ipv6Header.GetSource (), incomingInterface))
   {
-    NS_LOG_LOGIC ("INFINITE_RANK is advertised from a preferred parent - delete preferred parent and remove it from candidate parents");
-    DeletePreferredParent ();
+    NS_LOG_LOGIC ("INFINITE_RANK is advertised from a parent - delete parent and remove it from DODAG parents");
+    DeleteParent (ipv6Header.GetSource ());
   }
 
 
-  // add sender as upward route if rank is lower then the nodes rank
-  if (m_ocp.DagRank (dioHeader.GetRank ()) < m_ocp.DagRank (m_rank) && m_dodagId == dioHeader.GetDodagId () && m_instanceId == dioHeader.GetRplInstanceId ())
+  
+  if (m_dodagId == dioHeader.GetDodagId () && m_instanceId == dioHeader.GetRplInstanceId () && m_dodagVersionNumber == dioHeader.GetVersionNumber ())
   {
-    // add link local address
+    // add link local address when node is in the same dodag
     m_routingTable.AddRoute (ipv6Header.GetSource (), incomingInterface, 1, dioHeader.GetDodagId (), dioHeader.GetRplInstanceId (), dioHeader.GetDtsn (), 0xFF, false);
-    RplNode newNode = {dioHeader.GetRank (), ipv6Header.GetSource (), incomingInterface, dioHeader.GetDtsn ()};
-    auto nodeIter = m_dodagParents.find (newNode);
-    bool nodeDtsnChanged = false;
-    bool addedParentNode = false;
-    if (nodeIter != m_dodagParents.end () ) 
-    {
-      // in dodag parents
-      if (nodeIter->dtsn != dioHeader.GetDtsn ())
-      {
-        nodeDtsnChanged = true;
-        //m_dodagParents.erase (nodeIter);
-        nodeIter->dtsn = dioHeader.GetDtsn ();
-      }
-      
-    }else
-    {
-      addedParentNode = true;
-      m_dodagParents.insert (newNode);
-    }
-    
 
-    // checks if dtsn is updated to include self route information for DAO messages
-    for (RplNode daoParent : m_daoParents)
+    // add sender as parent if rank is lower then the nodes rank
+    if (m_ocp.DagRank (dioHeader.GetRank ()) < m_ocp.DagRank (m_rank))
     {
-      if (daoParent.address == ipv6Header.GetSource ())
+      RplNode newNode = {dioHeader.GetRank (), ipv6Header.GetSource (), incomingInterface, dioHeader.GetDtsn ()};
+      auto nodeIter = m_dodagParents.find (newNode);
+      bool nodeDtsnChanged = false;
+      bool addedParentNode = false;
+      if (nodeIter != m_dodagParents.end () ) 
       {
-        if (nodeDtsnChanged || addedParentNode)
+        // in dodag parents
+        if (nodeIter->dtsn != dioHeader.GetDtsn ())
         {
-          m_dtsnChanged = true;
-          // for non-storing mode trigger self dtsn update
-          if (!m_isStoring)
+          nodeDtsnChanged = true;
+          //m_dodagParents.erase (nodeIter);
+          nodeIter->dtsn = dioHeader.GetDtsn ();
+        }
+        
+      }else
+      {
+        addedParentNode = true;
+        m_dodagParents.insert (newNode);
+      }
+
+      UpdatePreferredParent ();
+
+      // checks if dtsn is updated to include self route information for DAO messages
+      for (RplNode daoParent : m_daoParents)
+      {
+        if (daoParent.address == ipv6Header.GetSource ())
+        {
+          if (nodeDtsnChanged || addedParentNode)
           {
-            m_dtsn++;
+            m_dtsnChanged = true;
+            // for non-storing mode trigger self dtsn update
+            if (!m_isStoring)
+            {
+              m_dtsn++;
+            }
           }
         }
       }
+      return;
     }
 
-    UpdatePreferredParent ();
     
-
-    return;
+    if (m_ocp.DagRank (dioHeader.GetRank ()) >= m_ocp.DagRank (m_rank))
+    {
+      NS_LOG_LOGIC ("Dropping DIO message, higher or equal rank advertised");
+      return;
+    }
   }
 
 
-  if (m_ocp.DagRank (dioHeader.GetRank ()) >= m_ocp.DagRank (m_rank))
-  {
-    NS_LOG_LOGIC ("Dropping DIO message, higher or equal rank advertised");
-    return;
-  }
 
   /*if (dioHeader.GetVersionNumber () > m_dodagVersionNumber)
   {
@@ -976,7 +997,7 @@ void RoutingProtocol::ReceiveDaoAck (Ptr<Packet> packet, Ipv6Header ipv6Header)
   // delete sent dao as the ack is received
   for(auto iter = m_sentDaos.begin(); iter != m_sentDaos.end();)
   {
-    if (daoAckHeader.GetDaoSequence () == iter->daoSequence)
+    if (daoAckHeader.GetDaoSequence () == iter->daoSequence && ipv6Header.GetSource () == iter->daoParent.address)
     {
       iter->event.Cancel ();
       iter = m_sentDaos.erase(iter);
@@ -1059,6 +1080,25 @@ void RoutingProtocol::UpdateDaoParents ()
 {
   std::set<RplNode> daoParents;
   daoParents.insert (m_preferredParent);
+  // if more than 1 DAO parent shall be used, try got get
+  if (m_maxDaoParents > 1)
+  {
+    int daoParentCounter = 1;
+    for (RplNode parentNode : m_dodagParents)
+    {
+      // do not add preferred parent a second time
+      if (parentNode == m_preferredParent)
+      {
+        continue;
+      }
+      daoParents.insert (parentNode);
+      daoParentCounter++;
+      if (daoParentCounter >= m_maxDaoParents)
+      {
+        break;
+      }
+    }
+  }
   m_daoParents = daoParents;
 }
 
@@ -1564,21 +1604,22 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
   {
     NS_LOG_LOGIC ("RPL: Send DAO to DAO parent " << daoParent.address);
     SendOnAllInterfaces (packet, Inet6SocketAddress (daoParent.address));
+
+    if (m_k && !isNoPath)
+    {
+      EventId event = Simulator::Schedule (m_daoAckTimeout, &RoutingProtocol::ResendDao, this, daoSequence, daoParent);
+      SentDao newDao = {daoSequence, daoParent, packet, 1, event};
+      m_sentDaos.push_back (newDao);
+      //m_daoAckTimer.Schedule ();
+    }
   }
 
 
-  if (m_k && !isNoPath)
-  {
-    EventId event = Simulator::Schedule (m_daoAckTimeout, &RoutingProtocol::ResendDao, this, daoSequence);
-    SentDao newDao = {daoSequence, packet, 1, event};
-    m_sentDaos.push_back (newDao);
-    //m_daoAckTimer.Schedule ();
-  }
   m_childDaoOptions.clear ();
 
 }
 
-void RoutingProtocol::ResendDao (uint8_t daoSequence)
+void RoutingProtocol::ResendDao (uint8_t daoSequence, RplNode daoParent)
 {
   if (m_preferredParent.rank == INFINITE_RANK)
   {
@@ -1587,13 +1628,13 @@ void RoutingProtocol::ResendDao (uint8_t daoSequence)
   }
   for(auto iter = m_sentDaos.begin(); iter != m_sentDaos.end();)
   {
-    if (daoSequence == iter->daoSequence)
+    if (daoSequence == iter->daoSequence && daoParent == iter->daoParent)
     {
       if (iter->daoMessageCounter <= m_numberOfDaoRetries)
       {
         NS_LOG_LOGIC ("Resending Dao");
-        SendOnAllInterfaces (iter->daoPacket, Inet6SocketAddress (m_preferredParent.address));
-        EventId event = Simulator::Schedule (m_daoAckTimeout, &RoutingProtocol::ResendDao, this, m_daoSequence);
+        SendOnAllInterfaces (iter->daoPacket, Inet6SocketAddress (iter->daoParent.address));
+        EventId event = Simulator::Schedule (m_daoAckTimeout, &RoutingProtocol::ResendDao, this, daoSequence, daoParent);
         iter->event = event;
         iter->daoMessageCounter++;
         ++iter;

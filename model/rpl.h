@@ -265,6 +265,7 @@ private:
   bool isMyAddress (Ipv6Address addr, Ptr<NetDevice> interface);
   bool isMyAddress (Ipv6Address addr, uint32_t interface);
   bool isMyAddress (Ipv6Address addr);
+  bool isDodagParent (Ipv6Address addr, uint32_t interface);
   /**
    * Receive and process control packet
    * \param socket input socket
@@ -326,7 +327,7 @@ private:
    */
   void SendDao (uint8_t daoSequence, bool isNoPath);
 
-  void ResendDao (uint8_t daoSequence);
+  void ResendDao (uint8_t daoSequence, RplNode daoParent);
   //void DaoAckExpireTimer ();
 
   /// Internal management
@@ -403,9 +404,10 @@ private:
   uint16_t m_defaultLifetimeUnit = DEFAULT_LIFETIME_UNIT;
   uint8_t m_daoSequence = 0;
   uint8_t m_pathSequence = 0;
+  uint8_t m_maxDaoParents;
 
   /// DODAG state
-  //std::set<RplNode> m_candidateNeighbors; // not used, DODAG Parents are directly added from DIOs
+  //std::set<RplNode> m_candidateNeighbors; // not used as, neighbors are directly put into the routing table and DODAG Parents are directly added from DIOs
   std::set<RplNode> m_dodagParents;
   std::set<RplNode> m_daoParents;
   RplNode m_preferredParent = {INFINITE_RANK, Ipv6Address ("::"), 0,0};
@@ -428,6 +430,7 @@ private:
   struct SentDao 
   {
     uint8_t daoSequence;
+    RplNode daoParent;
     Ptr<Packet> daoPacket;
     int daoMessageCounter;
     EventId event;
