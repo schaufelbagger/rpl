@@ -25,18 +25,21 @@
 
 #include "rpl-header.h"
 
+
 #include <set>
 
 namespace ns3 {
 namespace rpl {
 
+#define INFINITE_RANK 0xFFFF
+
 
 struct RplNode 
 {
-  uint16_t rank;
-  Ipv6Address address;
-  uint32_t interface;
-  mutable uint8_t dtsn;
+  uint16_t rank = INFINITE_RANK;
+  Ipv6Address address = Ipv6Address ("::");
+  uint32_t interface = 0xFFFFFFFF;
+  mutable uint8_t dtsn = 0;
   bool operator<(const RplNode& rhs) const
   {
     return std::tie(rank, interface, address) < std::tie(rhs.rank, rhs.interface, rhs.address);

@@ -33,7 +33,7 @@ namespace rpl {
 #define DEFAULT_MIN_HOP_RANK_INCREASE 256
 #define BASE_RANK 0
 #define ROOT_RANK DEFAULT_MIN_HOP_RANK_INCREASE
-#define INFINITE_RANK 0xFFFF
+
 
 
 /// OF0 defines
