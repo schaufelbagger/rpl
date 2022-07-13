@@ -55,7 +55,7 @@ namespace rpl {
     os << "Metric " << +m_metric << ", ";
     os << "DODAG ID " << +m_metric << ", ";
     os << "Instance ID " << +m_instanceId << ", ";
-    os << "DTSN " << +m_dtsn << ", ";
+    os << "Path Sequence " << m_pathSequence << ", ";
     os << "Lifetime " << +m_lifetime << ", ";
     os << "Downward " << +m_downward << ")" << std::endl;
   }
@@ -66,6 +66,43 @@ namespace rpl {
   bool RplRoutingTable::Empty () const
   {
     return m_routingTable.empty ();
+  }
+
+  void RplRoutingTable::RemoveRoutesOfTarget (Ipv6Address target, uint32_t interface)
+  {
+    NS_ABORT_MSG_IF (target.IsAny (), "tried removing any address from routing table");
+    for(auto iter = m_routingTable.begin(); iter != m_routingTable.end();)
+    {
+      RplRoutingTableEntry currentRoute = *iter;
+      if( currentRoute.GetDest () == target && currentRoute.GetInterface () == interface)
+      {
+        iter = m_routingTable.erase(iter);
+      }
+      else if (currentRoute.GetGateway () == target && currentRoute.GetInterface () == interface)
+      {
+        iter = m_routingTable.erase(iter);
+      }
+      else
+      {
+        ++iter;
+      }
+    }
+  }
+
+    void RplRoutingTable::RemoveRoutesOfInterface (uint32_t interface)
+  {
+    for(auto iter = m_routingTable.begin(); iter != m_routingTable.end();)
+    {
+      RplRoutingTableEntry currentRoute = *iter;
+      if(currentRoute.GetInterface () == interface)
+      {
+        iter = m_routingTable.erase(iter);
+      }
+      else
+      {
+        ++iter;
+      }
+    }
   }
 
   void RplRoutingTable::RemoveRoutes (Ipv6Address dst, Ipv6Address gateway, uint32_t interface)
@@ -105,37 +142,65 @@ namespace rpl {
     }
   }
 
-
-  void RplRoutingTable::AddRoute (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, uint8_t lifetime, bool downward)
+  void RplRoutingTable::RemoveRoutesWithLowerPathSequence (Ipv6Address dest, LollipopCounter<uint8_t> pathSequence)
   {
-    NS_LOG_FUNCTION (this << dest << nextHop << interface);
-    if (!checkAndUpdateDuplicate (dest, nextHop, interface, metric, dodagId, instanceId, dtsn, lifetime, downward))
+    NS_ABORT_MSG_IF (dest.IsAny(), "Tried to remove the any address from the routing table");
+    for(auto iter = m_routingTable.begin(); iter != m_routingTable.end();)
     {
-      RplRoutingTableEntry route = RplRoutingTableEntry (dest, nextHop, interface);
-      route.SetMetric (metric);
-      route.SetDodagId (dodagId);
-      route.SetInstanceId (instanceId);
-      route.SetDtsn (dtsn);
-      route.SetLifetime (lifetime);
-      route.SetDownward (downward);
-      m_routingTable.push_back (route);
+      RplRoutingTableEntry currentRoute = *iter;
+      if(currentRoute.GetDest () == dest && currentRoute.GetPathSequence () < pathSequence)
+      {
+        iter = m_routingTable.erase(iter);
+      }
+      else
+      {
+        ++iter;
+      }
     }
   }
 
-  void RplRoutingTable::AddRoute (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, uint8_t lifetime, bool downward)
+
+  void RplRoutingTable::AddRoute (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t pathSequence, uint8_t lifetime, bool downward)
   {
-    NS_LOG_FUNCTION (this << dest << interface);
-    if (!checkAndUpdateDuplicate (dest, Ipv6Address::GetZero (), interface, metric, dodagId, instanceId, dtsn, lifetime, downward))
+    NS_LOG_FUNCTION (this << dest << nextHop << interface);
+    LollipopCounter<uint8_t> lolipopPathSequence = pathSequence;
+    if (lifetime > 0)
+    {
+      RemoveRoutesWithLowerPathSequence (dest, lolipopPathSequence);
+      if (!CheckAndUpdateDuplicate (dest, nextHop, interface, metric, dodagId, instanceId, pathSequence, lifetime, downward))
+      {
+        RplRoutingTableEntry route = RplRoutingTableEntry (dest, nextHop, interface);
+        route.SetMetric (metric);
+        route.SetDodagId (dodagId);
+        route.SetInstanceId (instanceId);
+        route.SetPathSequence (pathSequence);
+        route.SetLifetime (lifetime);
+        route.SetDownward (downward);
+        m_routingTable.push_back (route);
+      }
+    }else
+    {
+      NS_ABORT_MSG ("TODO remove routes upon receiving No-Path Daos");
+      //RemoveRoutes (dest, dest, interface);
+    }
+
+  }
+
+  void RplRoutingTable::AddRoute (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t pathSequence, uint8_t lifetime, bool downward)
+  {
+    AddRoute (dest, Ipv6Address::GetZero (), interface, metric, dodagId, instanceId, pathSequence, lifetime, downward);
+    /*NS_LOG_FUNCTION (this << dest << interface);
+    if (!CheckAndUpdateDuplicate (dest, Ipv6Address::GetZero (), interface, metric, dodagId, instanceId, pathSequence, lifetime, downward))
     {
       RplRoutingTableEntry route = RplRoutingTableEntry (dest, interface);
       route.SetMetric (metric);
       route.SetDodagId (dodagId);
       route.SetInstanceId (instanceId);
-      route.SetDtsn (dtsn);
+      route.SetPathSequence (pathSequence);
       route.SetLifetime (lifetime);
       route.SetDownward (downward);
       m_routingTable.push_back (route);
-    }
+    }*/
 
   }
 
@@ -151,11 +216,12 @@ namespace rpl {
       for (auto currentRplTarget : rplTargets)
       {
         bool downward = true;
-        uint8_t dtsn = daoSequence;
         if (isStoring)
         {
-          uint8_t lifetime = transitInformations.front ().pathLifetime;
-          AddRoute (currentRplTarget.targetPrefix.ConvertToIpv6Address (), nextHop, interface, metric, dodagId, instanceId, dtsn, lifetime, downward);
+          RplHeaderOption::TransitInformation transitInformation = transitInformations.front ();
+          uint8_t lifetime = transitInformation.pathLifetime;
+          uint8_t pathSequence = transitInformation.pathSequence;
+          AddRoute (currentRplTarget.targetPrefix.ConvertToIpv6Address (), nextHop, interface, metric, dodagId, instanceId, pathSequence, lifetime, downward);
         }
         else
         {
@@ -169,7 +235,7 @@ namespace rpl {
     }
   }
 
-  bool RplRoutingTable::checkAndUpdateDuplicate (Ipv6Address dst, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, uint8_t lifetime, bool downward)
+  bool RplRoutingTable::CheckAndUpdateDuplicate (Ipv6Address dst, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t pathSequence, uint8_t lifetime, bool downward)
   {
     for (RplRoutingTableEntry & route : m_routingTable)
     {
@@ -178,7 +244,7 @@ namespace rpl {
         route.SetMetric (metric);
         route.SetDodagId (dodagId);
         route.SetInstanceId (instanceId);
-        route.SetDtsn (dtsn);
+        route.SetPathSequence (pathSequence);
         route.SetLifetime (lifetime);
         route.SetDownward (downward);
         return true;

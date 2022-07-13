@@ -26,6 +26,7 @@
 #include "ns3/ipv6-routing-protocol.h"
 #include "ns3/trickle-timer.h"
 #include "ns3/ipv6-routing-table-entry.h"
+#include "ns3/lollipop-counter.h"
 
 #include "rpl-state.h"
 #include "rpl-header-option.h"
@@ -96,20 +97,20 @@ public:
     return m_instanceId;
   }
   /**
-   * \brief Set the DTSN
-   * \param dtsn the DTSN
+   * \brief Set the pathSequence
+   * \param pathSequence the pathSequence
    */
-  void SetDtsn (uint8_t dtsn)
+  void SetPathSequence (LollipopCounter<uint8_t> pathSequence)
   {
-    m_dtsn = dtsn;
+    m_pathSequence = pathSequence;
   }
   /**
-   * \brief Get the DTSN
-   * \return the DTSN
+   * \brief Get the pathSequence
+   * \return the pathSequence
    */
-  uint8_t GetDtsn () const
+  LollipopCounter<uint8_t> GetPathSequence () const
   {
-    return m_dtsn;
+    return m_pathSequence;
   }
   /**
    * \brief Set route lifetime
@@ -147,7 +148,7 @@ private:
   uint16_t m_metric;
   Ipv6Address m_dodagId;
   uint8_t m_instanceId;
-  uint8_t m_dtsn;
+  LollipopCounter<uint8_t> m_pathSequence;
   uint8_t m_lifetime;
   bool m_downward;
 };
@@ -176,11 +177,14 @@ public:
    * \param interface interface of the route entry
    */
   void RemoveRoutes (Ipv6Address dst = Ipv6Address("::"), Ipv6Address gateway = Ipv6Address("::"), uint32_t interface = 0);
+  void RemoveRoutesOfTarget (Ipv6Address target, uint32_t interface);
+  void RemoveRoutesOfInterface (uint32_t interface);
   void RemoveDownwardRoutes (Ipv6Address dodagId, uint8_t instanceId);
-  void AddRoute (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, uint8_t lifetime, bool downward);
-  void AddRoute (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, uint8_t lifetime, bool downward);
-  void AddDownwardRoutes (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t daoSequence, Ipv6Address dodagId, uint8_t instanceId, bool isStoring);
-  bool checkAndUpdateDuplicate (Ipv6Address dst, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, uint8_t lifetime, bool downward);
+  void RemoveRoutesWithLowerPathSequence (Ipv6Address dest, LollipopCounter<uint8_t> pathSequence);
+  void AddRoute (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t pathSequence, uint8_t lifetime, bool downward);
+  void AddRoute (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t pathSequence, uint8_t lifetime, bool downward);
+  void AddDownwardRoutes (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t pathSequence, Ipv6Address dodagId, uint8_t instanceId, bool isStoring);
+  bool CheckAndUpdateDuplicate (Ipv6Address dst, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t daoSequence, uint8_t lifetime, bool downward);
   /**
    * \brief searches the table entry by destination and interface
    *        returns the null pointer when not found

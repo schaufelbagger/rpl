@@ -26,6 +26,7 @@
 #include "ns3/timer.h"
 #include "ns3/trickle-timer.h"
 #include "ns3/traced-callback.h"
+#include "ns3/lollipop-counter.h"
 
 #include "rpl-header.h"
 #include "rpl-header-option.h"
@@ -280,7 +281,7 @@ private:
 
   void UpdatePreferredParent ();
   void UpdateDaoParents ();
-  void DeleteParent (Ipv6Address address);
+  void DeleteParent (Ipv6Address address, uint32_t interface);
   /**
    * \brief remove parents with higher rank
    */
@@ -325,7 +326,7 @@ private:
   /**
    * \brief Fires when a DAO message shall be sent
    */
-  void SendDao (uint8_t daoSequence, bool isNoPath);
+  void SendDao (bool isNoPath);
 
   void ResendDao (uint8_t daoSequence, RplNode daoParent);
   //void DaoAckExpireTimer ();
@@ -393,7 +394,7 @@ private:
 
 
   /// RPL Identifiers
-  uint8_t m_dodagVersionNumber = DEFAULT_INIT_DODAG_VERSION;
+  LollipopCounter<uint8_t> m_dodagVersionNumber = DEFAULT_INIT_DODAG_VERSION;
   uint16_t m_rank = INFINITE_RANK;
   uint8_t m_dtsn;
   bool m_isStoring;
@@ -402,8 +403,8 @@ private:
   RplObjectiveFunction m_ocp;
   uint8_t m_defaultLifetime = DEFAULT_LIFETIME;
   uint16_t m_defaultLifetimeUnit = DEFAULT_LIFETIME_UNIT;
-  uint8_t m_daoSequence = 0;
-  uint8_t m_pathSequence = 0;
+  LollipopCounter<uint8_t> m_daoSequence = 0;
+  LollipopCounter<uint8_t> m_pathSequence = 0;
   uint8_t m_maxDaoParents;
 
   /// DODAG state

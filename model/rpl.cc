@@ -278,7 +278,7 @@ TypeId RoutingProtocol::GetTypeId (void)
   .AddConstructor<RoutingProtocol> ()
   .AddAttribute ("MaxDaoParents",
                 "Upper bound for number of DAO parents",
-                UintegerValue (3),
+                UintegerValue (1),
                 MakeUintegerAccessor (&RoutingProtocol::m_maxDaoParents),
                 MakeUintegerChecker<uint8_t>())
   .AddTraceSource ("UpdatedPrefParent",
@@ -614,6 +614,7 @@ void RoutingProtocol::ReceiveDu (Ptr<Packet> packet, Ipv6Header ipv6Header, RplI
     return;
   }
 
+  // the unreachable address is the next hop address, if is given in the rtentry, otherwise the destination
   Ipv6Address unreachableAddress;
   uint32_t interfaceForUnreachableAddress = m_ipv6->GetInterfaceForDevice (rtentry->GetOutputDevice ());
   if (rtentry->GetGateway () == Ipv6Address::GetZero () || rtentry->GetGateway ().IsAny ())
@@ -625,10 +626,10 @@ void RoutingProtocol::ReceiveDu (Ptr<Packet> packet, Ipv6Header ipv6Header, RplI
   }
 
   // remove routes where destination or next Hop is the unreachable address
-  m_routingTable.RemoveRoutes (unreachableAddress, unreachableAddress, interfaceForUnreachableAddress);
+  m_routingTable.RemoveRoutesOfTarget (unreachableAddress, interfaceForUnreachableAddress);
   if (!m_isRoot)
   {
-    DeleteParent (unreachableAddress);
+    DeleteParent (unreachableAddress, interfaceForUnreachableAddress);
   }
 
 }
@@ -674,7 +675,7 @@ void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
     NS_LOG_LOGIC ("RPL: Send DIO with DODAG Configuration to Node (" << ipv6Header.GetSource () << ")that sent the DIS message");
     Ptr<Packet> packet = Create<Packet> ();
     RplHeaderOption dodagConfig;
-    DioHeader dioHeader (m_instanceId, m_dodagVersionNumber, m_rank, m_isGrounded, m_mop, m_dodagPreference, m_dtsn++, 0, 0, m_dodagId);
+    DioHeader dioHeader (m_instanceId, m_dodagVersionNumber.GetValue (), m_rank, m_isGrounded, m_mop, m_dodagPreference, m_dtsn++, 0, 0, m_dodagId);
     RplIcmpv6Header rplIcmpv6Header (TYPE_DIO);
     dodagConfig.SetDodagConfiguration (m_pathControlSize, m_dioIntervalDoublings, m_dioIntervalMin, m_dioRedundancyConstant, 0, m_minHopRankIncrease, m_ocp.GetOcp (), m_defaultLifetime, m_defaultLifetimeUnit);
 
@@ -807,7 +808,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   if (!m_dodagId.IsAny () && dioHeader.GetRank () == INFINITE_RANK && isDodagParent (ipv6Header.GetSource (), incomingInterface))
   {
     NS_LOG_LOGIC ("INFINITE_RANK is advertised from a parent - delete parent and remove it from DODAG parents");
-    DeleteParent (ipv6Header.GetSource ());
+    DeleteParent (ipv6Header.GetSource (), incomingInterface);
   }
 
 
@@ -910,6 +911,7 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   packet->RemoveHeader (daoHeader);
   payloadLength = ipv6Header.GetPayloadLength () - 4 - daoHeader.GetSerializedSize ();
 
+  // if ACK is expected, send a DAO ACK back
   if (daoHeader.GetK ())
   {
     NS_LOG_LOGIC ("RPL: Send DAO ACK back to DAO sender to " << ipv6Header.GetSource ());
@@ -976,7 +978,7 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     if (m_sendDaoEvent.GetUid () == m_sendDaoEvent.INVALID || m_sendDaoEvent.IsExpired ())
     {
       NS_LOG_DEBUG ("Scheduling new DAO");
-      m_sendDaoEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, false);
+      m_sendDaoEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, false);
     }
   }
 
@@ -1015,6 +1017,7 @@ void RoutingProtocol::UpdatePreferredParent ()
   if (m_dodagParents.empty ())
   {
     DetachFromDodag ();
+    return;
   }
   
 
@@ -1053,7 +1056,7 @@ void RoutingProtocol::UpdatePreferredParent ()
       m_dtsnChanged = true;
       if (m_sendDaoEvent.GetUid () == m_sendDaoEvent.INVALID || m_sendDaoEvent.IsExpired ())
       {
-        m_sendDaoEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, false);
+        m_sendDaoEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, false);
       }
     }else{
       NS_LOG_LOGIC ("DAO disabled by mode of operation");
@@ -1107,7 +1110,7 @@ void RoutingProtocol::RemoveObsoleteParents ()
   NS_LOG_FUNCTION (this);
   for(auto iter = m_dodagParents.begin(); iter != m_dodagParents.end();)
   {
-    if(m_ocp.DagRank ((*iter).rank) > m_ocp.DagRank (m_rank))
+    if(m_ocp.DagRank ((*iter).rank) >= m_ocp.DagRank (m_rank))
     {
       iter = m_dodagParents.erase(iter);
     }
@@ -1118,16 +1121,16 @@ void RoutingProtocol::RemoveObsoleteParents ()
   }
 }
 
-void RoutingProtocol::DeleteParent (Ipv6Address address)
+void RoutingProtocol::DeleteParent (Ipv6Address address, uint32_t interface)
 {
-  NS_LOG_FUNCTION (this << address);
+  NS_LOG_FUNCTION (this << address << interface);
   if (m_dodagId.IsAny ()) 
   {
     NS_ABORT_MSG ("No preferred parent set");
   }
   for(auto iter = m_dodagParents.begin(); iter != m_dodagParents.end();)
   {
-    if((*iter).address == address)
+    if((*iter).address == address && (*iter).interface == interface)
     {
       iter = m_dodagParents.erase(iter);
     }
@@ -1136,12 +1139,12 @@ void RoutingProtocol::DeleteParent (Ipv6Address address)
       ++iter;
     }
   }
-  if (address == m_preferredParent.address)
+  if (address == m_preferredParent.address && interface == m_preferredParent.interface)
   {
     DeletePreferredParent ();
   }
-
 }
+
 
 void RoutingProtocol::DeletePreferredParent ()
 {
@@ -1164,10 +1167,10 @@ void RoutingProtocol::ClearPreferredParentRoutes()
     NS_ABORT_MSG ("No preferred parent set");
   }
 
-  NS_ABORT_MSG_IF (m_routingTable.Empty (), "Routes are empty");
+  //NS_ABORT_MSG_IF (m_routingTable.Empty (), "Routes are empty");
   m_routingTable.SetPreferredParentRoute (RplRoutingTableEntry ());
   // delete routes where destination or next hop address is the preferred parent address
-  m_routingTable.RemoveRoutes (m_preferredParent.address, m_preferredParent.address, m_preferredParent.interface);
+  m_routingTable.RemoveRoutesOfTarget (m_preferredParent.address, m_preferredParent.interface);
   
 }
 
@@ -1186,14 +1189,15 @@ void RoutingProtocol::DetachFromDodag ()
 
   m_dodagId = Ipv6Address ("::");
   m_isGrounded = false;
+  m_receivedDio = false;
+  m_daoParents = std::set<RplNode> ();
   NS_LOG_LOGIC ("Detached from DODAG");
-  //NS_ABORT_MSG ( "No parent in set while trying to find the preferred parent");
 }
 
 void RoutingProtocol::ClearDownwardRoutes ()
 {
   NS_LOG_FUNCTION (this);
-  NS_ABORT_MSG_IF (m_routingTable.Empty (), "Routes are empty");
+  //NS_ABORT_MSG_IF (m_routingTable.Empty (), "Routes are empty");
   m_routingTable.RemoveDownwardRoutes (m_dodagId, m_instanceId);
 }
 
@@ -1203,7 +1207,7 @@ void RoutingProtocol::PoisonChildren ()
   NS_ASSERT_MSG(m_rank == INFINITE_RANK, "rank of node is not INFINITE");
   NS_LOG_LOGIC ("poisoning children");
   Ptr<Packet> packet = Create<Packet> ();
-  DioHeader dioHeader (m_instanceId, m_dodagVersionNumber, m_rank, m_isGrounded, m_mop, m_dodagPreference, m_dtsn, 0, 0, m_dodagId);
+  DioHeader dioHeader (m_instanceId, m_dodagVersionNumber.GetValue (), m_rank, m_isGrounded, m_mop, m_dodagPreference, m_dtsn, 0, 0, m_dodagId);
   RplIcmpv6Header rplIcmpv6Header (TYPE_DIO);
 
   packet->AddHeader (dioHeader);
@@ -1245,6 +1249,47 @@ void RoutingProtocol::NotifyInterfaceDown (uint32_t interface)
       break;
     }
   }
+
+  // remove sent DAOs from this interface
+  for(auto iter = m_sentDaos.begin(); iter != m_sentDaos.end();)
+  {
+    if (iter->daoParent.interface == interface)
+    {
+      iter->event.Cancel ();
+      iter = m_sentDaos.erase(iter);
+    }
+    else
+    {
+      ++iter;
+    }
+  }
+
+  // remove routing entries on this interface
+  m_routingTable.RemoveRoutesOfInterface (interface);
+
+  // remove parents on this interface
+  bool deletedPreferredParent = false;
+  for(auto iter = m_dodagParents.begin(); iter != m_dodagParents.end();)
+  {
+    if((*iter).interface == interface)
+    {
+      if ((*iter) == m_preferredParent)
+      {
+        deletedPreferredParent = true;
+      }
+      iter = m_dodagParents.erase(iter);
+    }
+    else
+    {
+      ++iter;
+    }
+  }
+  if (deletedPreferredParent)
+  {
+    DeletePreferredParent ();
+  }
+  UpdateDaoParents ();
+
 }
 void RoutingProtocol::NotifyAddAddress (uint32_t interface, Ipv6InterfaceAddress address)
 {
@@ -1480,7 +1525,7 @@ void RoutingProtocol::ExpireTrickleTimer (void)
   // send DIO
   NS_LOG_LOGIC ("RPL: Send DIO Broadcast due to Trickle Timer expiration");
   Ptr<Packet> packet = Create<Packet> ();
-  DioHeader dioHeader (m_instanceId, m_dodagVersionNumber, m_rank, m_isGrounded, m_mop, m_dodagPreference, m_dtsn++, 0, 0, m_dodagId);
+  DioHeader dioHeader (m_instanceId, m_dodagVersionNumber.GetValue (), m_rank, m_isGrounded, m_mop, m_dodagPreference, m_dtsn++, 0, 0, m_dodagId);
   RplIcmpv6Header rplIcmpv6Header (TYPE_DIO);
 
   packet->AddHeader (dioHeader);
@@ -1522,7 +1567,7 @@ void RoutingProtocol::DisExpireTimer (void)
   }
 }
 
-void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
+void RoutingProtocol::SendDao (bool isNoPath)
 {
   NS_LOG_FUNCTION (this);
 
@@ -1538,16 +1583,13 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
 
   if (m_isStoring)
   {
-    // in storing mode add multiple RPL Target Options and a singe Transit Information without parent address, since it is always this node
-    RplHeaderOption transitInformation;
-    
-
-
     // Add all global IP addresses As RPL Target when triggered from parents DIO (DTSN)
     if (m_dtsnChanged)
     {
       m_dtsnChanged = false;  // reset dtsn change
-
+      // in storing mode add transitinformation to rpl self target(s)
+      RplHeaderOption transitInformation;
+      bool hasSelfTarget = false;
       // TODO RPL currently does not support learning nodes through different protocols
       uint8_t e = 0;
       // TODO add logic for path control field
@@ -1559,7 +1601,8 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
       }else{
         pathLifetime = m_defaultLifetime;
       }
-      transitInformation.SetTransitInformation (e, pathControl, m_pathSequence++, pathLifetime);
+      m_pathSequence++;
+      transitInformation.SetTransitInformation (e, pathControl, m_pathSequence.GetValue (), pathLifetime);
 
       packet->AddHeader (transitInformation);
       
@@ -1574,14 +1617,16 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
             if (address.GetScope() == Ipv6InterfaceAddress::GLOBAL)
             {
               RplHeaderOption selfTarget;
+              hasSelfTarget = true;
               selfTarget.SetRplTarget (address.GetAddress ());
               packet->AddHeader (selfTarget);
             }
           }
         }
       }
+      NS_ABORT_MSG_IF (!hasSelfTarget, "Node " << m_ipv6->GetObject<Node> ()->GetId () << "has no included interface with a global address - aborting");
     }
-    // add rpl targets from child nodes in reverse order
+    // add rpl targets and transitinformations from child nodes in reverse order
     for (std::list<RplHeaderOption>::reverse_iterator iter=m_childDaoOptions.rbegin(); iter!=m_childDaoOptions.rend(); ++iter)
     {
       packet->AddHeader (*iter);
@@ -1593,7 +1638,8 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
   }
 
 
-  DaoHeader daoHeader (m_instanceId, m_k, d, 0, 0, daoSequence, m_dodagId);
+  m_daoSequence++;
+  DaoHeader daoHeader (m_instanceId, m_k, d, 0, 0, m_daoSequence.GetValue (), m_dodagId);
   RplIcmpv6Header rplIcmpv6Header (TYPE_DAO);
 
   packet->AddHeader (daoHeader);
@@ -1607,8 +1653,8 @@ void RoutingProtocol::SendDao (uint8_t daoSequence, bool isNoPath)
 
     if (m_k && !isNoPath)
     {
-      EventId event = Simulator::Schedule (m_daoAckTimeout, &RoutingProtocol::ResendDao, this, daoSequence, daoParent);
-      SentDao newDao = {daoSequence, daoParent, packet, 1, event};
+      EventId event = Simulator::Schedule (m_daoAckTimeout, &RoutingProtocol::ResendDao, this, m_daoSequence.GetValue (), daoParent);
+      SentDao newDao = {m_daoSequence.GetValue (), daoParent, packet, 1, event};
       m_sentDaos.push_back (newDao);
       //m_daoAckTimer.Schedule ();
     }
@@ -1643,10 +1689,10 @@ void RoutingProtocol::ResendDao (uint8_t daoSequence, RplNode daoParent)
       {
         // RFC 18.2.6.
         NS_LOG_LOGIC ("Send No-Path Dao to parent, as he is not reachable");
-        SendDao (m_daoSequence++, true);
+        SendDao (true);
         //m_sendDaoNoPathEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, true);
+        DeleteParent (iter->daoParent.address, iter->daoParent.interface);
         iter = m_sentDaos.erase(iter);
-        DeletePreferredParent ();
       }
     }
     else
