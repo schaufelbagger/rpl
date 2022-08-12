@@ -27,6 +27,7 @@
 #include "ns3/trickle-timer.h"
 #include "ns3/ipv6-routing-table-entry.h"
 #include "ns3/lollipop-counter.h"
+#include "ns3/traced-callback.h"
 
 #include "rpl-state.h"
 #include "rpl-header-option.h"
@@ -176,7 +177,7 @@ public:
    * \param gateway next hop of the route entry
    * \param interface interface of the route entry
    */
-  void RemoveRoutes (Ipv6Address dst = Ipv6Address("::"), Ipv6Address gateway = Ipv6Address("::"), uint32_t interface = 0);
+  //void RemoveRoutes (Ipv6Address dst = Ipv6Address("::"), Ipv6Address gateway = Ipv6Address("::"), uint32_t interface = 0);
   void RemoveRoutesOfTarget (Ipv6Address target, uint32_t interface);
   void RemoveRoutesOfInterface (uint32_t interface);
   void RemoveDownwardRoutes (Ipv6Address dodagId, uint8_t instanceId);
@@ -230,10 +231,21 @@ public:
   {
     return m_routingTable;
   }
+  /**
+   * \brief Set the route added trace callback
+   * \param metric the route added trace callback
+   */
+  void SetRouteAddedTrace (TracedCallback<RplRoutingTableEntry> routeAddedTrace)
+  {
+    m_routeAddedTrace = routeAddedTrace;
+  }
+
 private:
   RplRoutingTableEntry m_preferredParentRoute;
   std::list<RplRoutingTableEntry> m_routingTable;
+  TracedCallback<RplRoutingTableEntry> m_routeAddedTrace;
 };
+
 
 
 

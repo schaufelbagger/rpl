@@ -89,7 +89,7 @@ namespace rpl {
     }
   }
 
-    void RplRoutingTable::RemoveRoutesOfInterface (uint32_t interface)
+  void RplRoutingTable::RemoveRoutesOfInterface (uint32_t interface)
   {
     for(auto iter = m_routingTable.begin(); iter != m_routingTable.end();)
     {
@@ -105,7 +105,7 @@ namespace rpl {
     }
   }
 
-  void RplRoutingTable::RemoveRoutes (Ipv6Address dst, Ipv6Address gateway, uint32_t interface)
+  /*void RplRoutingTable::RemoveRoutes (Ipv6Address dst, Ipv6Address gateway, uint32_t interface)
   {
     for(auto iter = m_routingTable.begin(); iter != m_routingTable.end();)
     {
@@ -123,7 +123,7 @@ namespace rpl {
         ++iter;
       }
     }
-  }
+  }*/
 
   void RplRoutingTable::RemoveDownwardRoutes (Ipv6Address dodagId, uint8_t instanceId)
   {
@@ -177,11 +177,12 @@ namespace rpl {
         route.SetLifetime (lifetime);
         route.SetDownward (downward);
         m_routingTable.push_back (route);
+        m_routeAddedTrace (route);
       }
     }else
     {
-      NS_ABORT_MSG ("TODO remove routes upon receiving No-Path Daos");
-      //RemoveRoutes (dest, dest, interface);
+      NS_LOG_DEBUG ("remove routes upon receiving No-Path Daos");
+      RemoveRoutesOfTarget (dest, interface);
     }
 
   }

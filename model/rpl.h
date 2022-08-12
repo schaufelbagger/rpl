@@ -257,6 +257,7 @@ public:
 
 
   TracedCallback<RplNode> m_updatedPrefParentTrace;
+  TracedCallback<RplRoutingTableEntry> m_routeAddedTrace; // is used in the routing table
 
 private:
 

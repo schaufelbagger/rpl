@@ -192,6 +192,8 @@ void RoutingProtocol::DoInitialize ()
     m_daoAckTimer.SetDelay (m_daoAckTimeout);
   }*/
 
+  m_routingTable.SetRouteAddedTrace (m_routeAddedTrace);
+
   if (m_isRoot)
   {
     InitRoot ();
@@ -285,7 +287,10 @@ TypeId RoutingProtocol::GetTypeId (void)
               "preferered parent updates to trace",
               MakeTraceSourceAccessor (&RoutingProtocol::m_updatedPrefParentTrace),
               "ns3::rpl::RoutingProtocol::updatedPrefParentCallback")
-
+  .AddTraceSource ("routeAdded",
+              "every route that is added to the routing table to trace\n callback passed to routing table",
+              MakeTraceSourceAccessor (&RoutingProtocol::m_routeAddedTrace),
+              "ns3::rpl::routeAddedCallback")
   ;
   return tid;
 }
@@ -930,6 +935,8 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
 
   std::list<RplHeaderOption::RplTarget> currentRplTargets;
   std::list<RplHeaderOption::TransitInformation> currentTransitInformations;
+
+  NS_ABORT_MSG_IF (payloadLength == 0, "Received DAO with no options from " << ipv6Header.GetSource ());
 
   while (payloadLength > 0)
   {
@@ -1689,9 +1696,14 @@ void RoutingProtocol::ResendDao (uint8_t daoSequence, RplNode daoParent)
       {
         // RFC 18.2.6.
         NS_LOG_LOGIC ("Send No-Path Dao to parent, as he is not reachable");
+        m_dtsnChanged = true; // to send self target in no-path
         SendDao (true);
         //m_sendDaoNoPathEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, true);
         DeleteParent (iter->daoParent.address, iter->daoParent.interface);
+        if (m_sentDaos.empty ())
+        {
+          break;
+        }
         iter = m_sentDaos.erase(iter);
       }
     }
@@ -1704,32 +1716,6 @@ void RoutingProtocol::ResendDao (uint8_t daoSequence, RplNode daoParent)
 }
 
 
-/*void RoutingProtocol::DaoAckExpireTimer ()
-{
-  if (m_preferredParent.rank == INFINITE_RANK)
-  {
-    NS_LOG_LOGIC ("Dao retransmission failed - no preferred parent set");
-    return;
-  }
-  if (m_daoMessageCounter <= m_numberOfDaoRetries)
-  {
-    
-    if (m_sendDaoEvent.GetUid () == m_sendDaoEvent.INVALID || m_sendDaoEvent.IsExpired ())
-    {
-      NS_LOG_LOGIC ("Resending Dao");
-      m_sendDaoEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence, false);
-    }
-  }
-  else
-  {
-    // RFC 18.2.6.
-    NS_LOG_LOGIC ("Send No-Path Dao to parent, as he is not reachable");
-    m_sendDaoNoPathEvent = Simulator::Schedule (m_delayDao, &RoutingProtocol::SendDao, this, m_daoSequence++, true);
-    DeletePreferredParent ();
-    UpdatePreferredParent ();
-  }
-}
-*/
 
 }
 }
