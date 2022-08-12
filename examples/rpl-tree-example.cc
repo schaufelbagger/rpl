@@ -17,6 +17,27 @@
  *
  * Author: Alexander Baranyai <e1525251@student.tuwien.ac.at>
  */
+
+/*
+// 
+//        n0
+//       / \
+//      /   \
+//    n1     n2
+//   / \     / \
+//  n3  n4  n5  n6
+// /
+//n7
+
+//        n0
+//      /  |
+//    n1  n2
+//   / |   | \
+//  n3 n4 n5  n6
+// /
+//n7
+*/
+
 #include "ns3/core-module.h"
 #include "ns3/rpl-helper.h"
 #include "ns3/network-module.h"
@@ -27,18 +48,16 @@
 #include "ns3/propagation-module.h"
 #include "ns3/sixlowpan-module.h"
 #include "ns3/applications-module.h"
-#include "ns3/trace-helper.h"
 
 #include "ns3/lr-wpan-module.h"
 #include "ns3/yans-wifi-helper.h"
-
-#include "ns3/rpl-state.h"
 
 //#define USE_WIFI
 #define USE_SIXLOWPAN
 #define USE_APPLICATION
 
 using namespace ns3;
+
 
 Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
   Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
@@ -63,8 +82,6 @@ void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rpl
   *stream->GetStream () << std::endl;                                                                      
 }
 
-
-
 int main (int argc, char *argv[])
 {
 
@@ -74,9 +91,10 @@ int main (int argc, char *argv[])
 
   // parameters
   bool verbose = true;
-  int numberOfNodes = 4;
+  int numberOfNodes = 8;
   // distance of nodes
-  int step = 50;
+  int xStep = 90;
+  int yStep = 50;
   Time applicationStart = Seconds (10);
   Time simulationTime = Seconds (15);
 #ifdef USE_APPLICATION
@@ -110,16 +128,39 @@ int main (int argc, char *argv[])
 
   // create nodes
   nodes.Create(numberOfNodes);
+
+  int treeLayers = std::ceil (std::log2 (numberOfNodes+1));
+  int lastLayerNodes = pow(2, treeLayers);
+  int rowLength = (lastLayerNodes * xStep);
+  int xBegin = rowLength / 2;
+  int iterNodeNum = 0;
   MobilityHelper mobility;
-  mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
-                                 "MinX", DoubleValue (0.0),
-                                 "MinY", DoubleValue (0.0),
-                                 "DeltaX", DoubleValue (step),
-                                 "DeltaY", DoubleValue (0),
-                                 "GridWidth", UintegerValue (numberOfNodes),
-                                 "LayoutType", StringValue ("RowFirst"));
-  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-  mobility.Install (nodes);
+  for (int layer = 0; layer < treeLayers; ++layer)
+  {
+    NodeContainer layerNodes = NodeContainer ();
+    int numLayerNodes = pow(2, layer);
+    int numLastLayersNodes = iterNodeNum;
+    mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
+                                  "MinX", DoubleValue (xBegin),
+                                  "MinY", DoubleValue (yStep * layer),
+                                  "DeltaX", DoubleValue (xStep),
+                                  "DeltaY", DoubleValue (0),
+                                  "GridWidth", UintegerValue (numberOfNodes),
+                                  "LayoutType", StringValue ("RowFirst"));
+    mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+    xBegin = xBegin - xStep;
+
+    for (; iterNodeNum < (numLastLayersNodes+numLayerNodes); ++iterNodeNum)
+    {
+      if (iterNodeNum >= numberOfNodes)
+      {
+        break;
+      }
+      layerNodes.Add (nodes.Get (iterNodeNum));
+    }
+    mobility.Install (layerNodes);
+  }
+  
 
   // ---------------- Create Devices -------------------------------
   /*
@@ -169,8 +210,6 @@ int main (int argc, char *argv[])
   ipv6.SetBase (Ipv6Address ("2001:2::"), Ipv6Prefix (64));
   Ipv6InterfaceContainer deviceInterfaces;
   deviceInterfaces = ipv6.Assign (devices);
-
-
 
   for (int i = 0; i< numberOfNodes; ++i)
   {

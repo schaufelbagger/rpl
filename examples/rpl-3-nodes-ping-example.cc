@@ -17,6 +17,9 @@
  *
  * Author: Alexander Baranyai <e1525251@student.tuwien.ac.at>
  */
+
+// 
+// n0 (root) --- n1 --- n2
 #include "ns3/core-module.h"
 #include "ns3/rpl-helper.h"
 #include "ns3/network-module.h"
@@ -27,42 +30,13 @@
 #include "ns3/propagation-module.h"
 #include "ns3/sixlowpan-module.h"
 #include "ns3/applications-module.h"
-#include "ns3/trace-helper.h"
 
 #include "ns3/lr-wpan-module.h"
-#include "ns3/yans-wifi-helper.h"
 
-#include "ns3/rpl-state.h"
-
-//#define USE_WIFI
 #define USE_SIXLOWPAN
 #define USE_APPLICATION
 
 using namespace ns3;
-
-Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
-  NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
-  Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
-  NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
-  Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
-  if (rpl)
-  {
-    return rpl;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << rplNode.address;
-  *stream->GetStream () << ", " << rplNode.rank;
-  *stream->GetStream () << std::endl;                                                                      
-}
-
 
 
 int main (int argc, char *argv[])
@@ -74,14 +48,13 @@ int main (int argc, char *argv[])
 
   // parameters
   bool verbose = true;
-  int numberOfNodes = 4;
+  int numberOfNodes = 3;
   // distance of nodes
-  int step = 50;
-  Time applicationStart = Seconds (10);
-  Time simulationTime = Seconds (15);
+  int step = 100;
+  Time simulationTime = Seconds (10);
 #ifdef USE_APPLICATION
   uint32_t packetSize = 10;
-  //uint32_t maxPacketCount = 5;
+  uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
 
@@ -98,11 +71,11 @@ int main (int argc, char *argv[])
 
   cmd.Parse (argc,argv);
 
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (0));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (0));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
 
   NS_LOG_UNCOND("rpl example\n\n");
 
@@ -122,19 +95,6 @@ int main (int argc, char *argv[])
   mobility.Install (nodes);
 
   // ---------------- Create Devices -------------------------------
-  /*
-  WifiMacHelper wifiMac;
-  wifiMac.SetType ("ns3::AdhocWifiMac");
-  YansWifiPhyHelper wifiPhy;
-  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
-  wifiPhy.SetChannel (wifiChannel.Create ());
-  WifiHelper wifi;
-  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager", "DataMode", StringValue ("OfdmRate6Mbps"), "RtsCtsThreshold", UintegerValue (0));
-  devices = wifi.Install (wifiPhy, wifiMac, nodes); 
-  if (verbose)
-  {
-    wifiPhy.EnablePcapAll (std::string ("rpl"));
-  }*/
 
   LrWpanHelper lrWpanHelper;
   // Add and install the LrWpanNetDevice for each node
@@ -170,31 +130,13 @@ int main (int argc, char *argv[])
   Ipv6InterfaceContainer deviceInterfaces;
   deviceInterfaces = ipv6.Assign (devices);
 
-
-
   for (int i = 0; i< numberOfNodes; ++i)
   {
     deviceInterfaces.SetForwarding (i, true);
-    AsciiTraceHelper asciiTraceHelper;
-    Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-          "stateChanges_node_" + std::to_string(i) + "_" + "updatedPrefParent" + ".txt");
-    GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
   }
   
-
-
-  /*<Node> node;
-  for (NodeContainer::Iterator i = nodes.Begin (); i != nodes.End (); ++i)
-  {
-    node = (*i);
-    Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
-    NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
-    Ptr<Ipv6RoutingProtocol> proto = ipv6->Get
-  }*/
-
-
   // ---------------- Install Applications -------------------------------
-/*#ifdef USE_APPLICATION
+#ifdef USE_APPLICATION
   Ping6Helper ping6;
 
 #ifdef USE_SIXLOWPAN
@@ -211,34 +153,7 @@ int main (int argc, char *argv[])
 
   apps.Start (Seconds (5.0));
   apps.Stop (simulationTime);
-#endif*/
-
-  // Add random application to generate (passive) traffic
-  UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(deviceInterfaces.GetAddress(numberOfNodes-1,1), 6000);
-  // Multicast disabled for now!
-  //UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(Ipv6Address (IPV6_GROUP_ADDR), 6000);
-  UdpEchoServerHelper udpServerHelper = UdpEchoServerHelper(6000);
-  
-  // Add random app to three nodes:
-  for (int n : {0})
-  {
-    udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (numberOfNodes-1,1)));
-    udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
-    udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
-    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (10)));
-    ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
-
-    apps.Start (applicationStart);
-    apps.Stop (simulationTime);
-  }
-
-  for (int n : {numberOfNodes-1})
-  {
-    udpServerHelper.SetAttribute ("Port", UintegerValue (6000));
-    ApplicationContainer apps =  udpServerHelper.Install(nodes.Get(n));
-    apps.Start (Seconds (1.0));
-    apps.Stop (simulationTime);
-  }
+#endif
 
 
 
