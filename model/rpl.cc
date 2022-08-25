@@ -199,9 +199,9 @@ void RoutingProtocol::DoInitialize ()
     InitRoot ();
   }
 
-  std::cout<<"Is Root: "<< +m_isRoot <<std::endl;
-  std::cout<<"MOP: "<< +m_mop <<std::endl;
-  std::cout<<"Instance ID: "<< +m_instanceId <<std::endl;
+  //std::cout<<"Is Root: "<< +m_isRoot <<std::endl;
+  //std::cout<<"MOP: "<< +m_mop <<std::endl;
+  //std::cout<<"Instance ID: "<< +m_instanceId <<std::endl;
 
   Ipv6RoutingProtocol::DoInitialize ();
 }
@@ -810,10 +810,20 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   }
   
   // check for route poisoning, then delete parent from upward routes and as preferred parent
-  if (!m_dodagId.IsAny () && dioHeader.GetRank () == INFINITE_RANK && isDodagParent (ipv6Header.GetSource (), incomingInterface))
+  if (!m_dodagId.IsAny () && dioHeader.GetRank () == INFINITE_RANK)
   {
-    NS_LOG_LOGIC ("INFINITE_RANK is advertised from a parent - delete parent and remove it from DODAG parents");
-    DeleteParent (ipv6Header.GetSource (), incomingInterface);
+    if (isDodagParent (ipv6Header.GetSource (), incomingInterface))
+    {
+      NS_LOG_LOGIC ("INFINITE_RANK is advertised from a parent - delete parent and remove it from DODAG parents");
+      DeleteParent (ipv6Header.GetSource (), incomingInterface);
+      return;
+    }
+    else
+    {
+      NS_LOG_LOGIC ("INFINITE_RANK is advertised from a non-parent - continuing");
+      return;
+    }
+
   }
 
 
