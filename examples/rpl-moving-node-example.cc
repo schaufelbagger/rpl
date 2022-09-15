@@ -70,6 +70,40 @@ Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
   }
 }
 
+Ptr<MobilityModel> GetMobilityModel(Ptr <Node> node){
+
+  Ptr<MobilityModel> mobilityModel = node->GetObject<MobilityModel> ();
+  NS_ASSERT_MSG (mobilityModel, "mobilityModel not installed on node");
+  //Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
+  if (mobilityModel)
+  {
+    return mobilityModel;
+  }else
+  {
+    return nullptr;
+  }
+}
+
+// Prints actual position and velocity when a course change event occurs
+void CourseChangeTraceSink (Ptr<OutputStreamWrapper> stream, Ptr<const MobilityModel> mobility)
+{
+  Vector pos = mobility->GetPosition (); // Get position
+  Vector vel = mobility->GetVelocity (); // Get velocity
+ 
+  // Prints position and velocities
+  *stream->GetStream () << Simulator::Now ().GetSeconds() << " POS: x=" << pos.x << ", y=" << pos.y
+      << ", z=" << pos.z << "; VEL:" << vel.x << ", y=" << vel.y
+      << ", z=" << vel.z << std::endl;
+}
+
+void TestTrace ( Ptr<ns3::MobilityModel const> newValue)
+{
+  std::cout << Simulator::Now().GetSeconds() 
+  << ": Position " << newValue->GetPosition () 
+  << ", Velocity " << newValue->GetVelocity ()
+  << std::endl;
+}
+
 void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
 { 
   *stream->GetStream () << Simulator::Now().GetSeconds();
@@ -104,21 +138,26 @@ int main (int argc, char *argv[])
 
   // parameters
   bool verbose = true;
-  int numberOfNodes = 25;
+  uint32_t numberOfGridNodes = 25;
+  uint32_t numberOfMovingNodes = 1;
   // distance of nodes
-  int xStep = 50;
-  int yStep = 50;
+  int xStep = 100;//70
+  int yStep = 100;
   Time applicationStart = Seconds (10);
-  Time simulationTime = Seconds (300);
+  Time simulationTime = Seconds (1000);
 #ifdef USE_APPLICATION
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
 
+  int run = 1;
   /// network
+  int numberOfNodes = numberOfGridNodes + numberOfMovingNodes;
   /// nodes used in the example
   NodeContainer nodes;
+  NodeContainer gridNodes;
+  NodeContainer movingNodes;
   /// devices used in the example
   NetDeviceContainer devices;
   /// interfaces used in the example
@@ -126,8 +165,12 @@ int main (int argc, char *argv[])
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
+  cmd.AddValue("run", "the run number", run);
 
   cmd.Parse (argc,argv);
+
+  RngSeedManager::SetSeed (1);
+  RngSeedManager::SetRun (run);
 
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
@@ -135,15 +178,25 @@ int main (int argc, char *argv[])
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
 
-  NS_LOG_UNCOND("rpl example\n\n");
+  NS_LOG_UNCOND("rpl moving node example\n\n");
 
   // ---------------- Create Nodes -------------------------------
 
   // create nodes
-  NS_ASSERT(numberOfNodes > 0);
-  nodes.Create(numberOfNodes);
+  NS_ASSERT(numberOfGridNodes > 0);
+  NS_ASSERT(numberOfMovingNodes > 0);
+  nodes.Create(numberOfGridNodes+numberOfMovingNodes);
+  for (uint32_t i = 0; i < numberOfGridNodes; i++)
+  {
+    gridNodes.Add (nodes.Get (i));
+  }
+  for (uint32_t i = numberOfGridNodes; i < numberOfGridNodes+numberOfMovingNodes; i++)
+  {
+    movingNodes.Add (nodes.Get (i));
+  }
+  
   MobilityHelper mobility;
-  int gridWidth = GetNextHighestSquareEdgeLength (numberOfNodes);
+  int gridWidth = GetNextHighestSquareEdgeLength (numberOfGridNodes);
   
   
   NS_ABORT_MSG_IF (gridWidth == 0,"invalid grid size");
@@ -167,43 +220,54 @@ int main (int argc, char *argv[])
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 
   // get center node as root node
-  Ptr<Node> rootNode = nodes.Get (middleNodeNumber);
-  mobility.Install (nodes);
+  Ptr<Node> rootNode = gridNodes.Get (middleNodeNumber);
+  mobility.Install (gridNodes);
 
 
   // configure the moving node
-  Ptr<Node> movingNode = nodes.Get (0);
+  mobility = MobilityHelper();
+  //Ptr<Node> movingNode = nodes.Get (0);
   int zHeight = 0;
+  // start in the middle of the grid
+  double xPosition = static_cast<double>(xStep*gridWidth - xStep)/2 + 10;
+  double yPosition = static_cast<double>(yStep*gridWidth - yStep)/2;
 
   Ptr<ListPositionAllocator> beginPositionAlloc = CreateObject<ListPositionAllocator> ();
-  beginPositionAlloc->Add(Vector3D (xStep*gridWidth/2,yStep*gridWidth/2,zHeight));
+  beginPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
+  
   mobility.SetPositionAllocator (beginPositionAlloc);
 
+
   Ptr<ListPositionAllocator> waypointPositionAlloc = CreateObject<ListPositionAllocator> ();
-  beginPositionAlloc->Add(Vector3D (4*xStep+xStep*gridWidth/2,yStep*gridWidth/2,zHeight));
-  beginPositionAlloc->Add(Vector3D (4*xStep+xStep*gridWidth/2,4*yStep+yStep*gridWidth/2,zHeight));
-  beginPositionAlloc->Add(Vector3D (xStep*gridWidth,4*yStep+yStep*gridWidth/2,zHeight));
-  beginPositionAlloc->Add(Vector3D (500+xStep*gridWidth,4*yStep+yStep*gridWidth/2,zHeight));
+  xPosition = gridWidth * xStep;
+  waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
+  yPosition = 0;
+  waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
+  // go to border of the grid
+  xPosition = xPosition + 200;
+  waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
+  xPosition = 0;
+  waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
 
 
-  double pauseMean = 10;
+  double pauseMean = 50;
   double pauseVariance = 1/3;
   Ptr<NormalRandomVariable> pause = CreateObject<NormalRandomVariable> ();
   pause->SetAttribute ("Mean", DoubleValue (pauseMean));
   pause->SetAttribute ("Variance", DoubleValue (pauseVariance));
 
-  double speedMean = 0.5;
+  double speedMean = 2.0;
   double speedVariance = 0.1;
   Ptr<NormalRandomVariable> speed = CreateObject<NormalRandomVariable> ();
   speed->SetAttribute ("Mean", DoubleValue (speedMean));
   speed->SetAttribute ("Variance", DoubleValue (speedVariance));
 
   mobility.SetMobilityModel ("ns3::RandomWaypointMobilityModel",
-                              "Pause", PointerValue(speed),
-                              "Speed", StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
+                              "Pause", PointerValue(pause),
+                              "Speed", PointerValue(speed),//StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
                               "PositionAllocator", PointerValue(waypointPositionAlloc));
 
-  mobility.Install (movingNode);
+  mobility.Install (movingNodes);
 
 
 
@@ -255,13 +319,24 @@ int main (int argc, char *argv[])
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
   }
 
-  for (int i : {movingNode->GetId ()})
+  //for (int i : {movingNode->GetId ()})
+  for (uint32_t i = numberOfGridNodes; i < numberOfGridNodes + numberOfMovingNodes; ++i)
   {
     //mobility.AssignStreams (nodes.Get (i), 0);
     AsciiTraceHelper asciiTraceHelper;
-    MobilityHelper::EnableAscii (asciiTraceHelper.CreateFileStream ("stateChanges_node_" + std::to_string(i) + "_" + "mobility-trace-example.txt"), i);
+    //MobilityHelper::EnableAsciiAll (asciiTraceHelper.CreateFileStream ("mobility-trace-example.mob"));
+    //std::cout << i << std::endl;
+    //MobilityHelper::EnableAscii (asciiTraceHelper.CreateFileStream ("stateChanges_node_" + std::to_string(i) + "_" + "mobility-trace-example.txt"), i);
+    std::cout << "moving node id: " << std::to_string(i) << std::endl;
+    Ptr<OutputStreamWrapper> courseChangeWrapper = asciiTraceHelper.CreateFileStream ( "stateChanges_node_" + std::to_string(i) + "_" + "CourseChange" + ".txt");
+    GetMobilityModel (nodes.Get (i))->TraceConnectWithoutContext("CourseChange", MakeBoundCallback (&CourseChangeTraceSink, courseChangeWrapper));
+    GetMobilityModel (nodes.Get (i))->TraceConnectWithoutContext ("CourseChange", MakeCallback(&TestTrace));
+    //std::cout << GetMobilityModel (nodes.Get (i))->GetPosition () << std::endl;
   }
-  
+  std::cout << "root node: " << GetMobilityModel (nodes.Get (rootNode->GetId()))->GetPosition () << std::endl;
+
+  //AsciiTraceHelper ascii;
+  //MobilityHelper::EnableAsciiAll (ascii.CreateFileStream ("mobility-trace-example.mob"));
 
   // ---------------- Install Applications -------------------------------
 
@@ -272,7 +347,8 @@ int main (int argc, char *argv[])
   UdpEchoServerHelper udpServerHelper = UdpEchoServerHelper(6000);
   
   // Add random app to root node and to first node:
-  for (uint32_t n : {movingNode->GetId ()})
+  //for (uint32_t n : {movingNode->GetId ()})
+  for (uint32_t n = numberOfGridNodes; n < numberOfGridNodes + numberOfMovingNodes; ++n)
   {
     NS_ABORT_MSG_IF (rootNode->GetId () == n, "udp client and server would be installed on the same node ( node " << rootNode->GetId () << "and " << n << ")");
     udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (rootNode->GetId (),1)));
