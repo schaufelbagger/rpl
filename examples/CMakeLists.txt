@@ -27,8 +27,8 @@ build_lib_example(
 )
 
 build_lib_example(
-  NAME rpl-10-nodes-line-example
-  SOURCE_FILES rpl-10-nodes-line-example.cc
+  NAME rpl-line-example
+  SOURCE_FILES rpl-line-example.cc
   LIBRARIES_TO_LINK
     ${librpl}
     ${libnetwork}
@@ -49,8 +49,8 @@ build_lib_example(
 )
 
 build_lib_example(
-  NAME rpl-on-off-example
-  SOURCE_FILES rpl-on-off-example.cc
+  NAME rpl-alt-path-example
+  SOURCE_FILES rpl-alt-path-example.cc
   LIBRARIES_TO_LINK
     ${librpl}
     ${libnetwork}
@@ -73,6 +73,17 @@ build_lib_example(
 build_lib_example(
   NAME rpl-moving-node-example
   SOURCE_FILES rpl-moving-node-example.cc
+  LIBRARIES_TO_LINK
+    ${librpl}
+    ${libnetwork}
+    ${libsixlowpan}
+    ${libinternet}
+    ${libinternet-apps}
+)
+
+build_lib_example(
+  NAME rpl-energy-example
+  SOURCE_FILES rpl-energy-example.cc
   LIBRARIES_TO_LINK
     ${librpl}
     ${libnetwork}
