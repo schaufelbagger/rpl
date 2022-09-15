@@ -137,7 +137,7 @@ int main (int argc, char *argv[])
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
 
-  NS_LOG_UNCOND("rpl example\n\n");
+  NS_LOG_UNCOND("rpl many nodes example\n\n");
 
   // ---------------- Create Nodes -------------------------------
 
@@ -216,11 +216,11 @@ int main (int argc, char *argv[])
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (nodes);
 
-  Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
+  /*Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
   positionAlloc->Add(Vector3D (xMean,yMean,0));
   mobility.SetPositionAllocator (positionAlloc);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-  mobility.Install (nodes.Get (1));
+  mobility.Install (nodes.Get (1));*/
   Ptr<Node> rootNode = nodes.Get (1);
 #else
   NS_ABORT_MSG ("No position model given");
