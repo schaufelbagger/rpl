@@ -28,9 +28,15 @@
 #include "ns3/sixlowpan-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/trace-helper.h"
+#include "ns3/node.h"
 
 #include "ns3/lr-wpan-module.h"
 #include "ns3/yans-wifi-helper.h"
+
+#include "ns3/energy-module.h"
+#include "ns3/lr-wpan-radio-energy-model.h"
+#include "ns3/lr-wpan-radio-energy-model-helper.h"
+//#include "ns3/statistics-helper.h"
 
 #include "ns3/rpl-state.h"
 
@@ -63,6 +69,19 @@ void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rpl
   *stream->GetStream () << std::endl;                                                                      
 }
 
+void RemainingEnergy (Ptr<OutputStreamWrapper> stream, double oldValue, double remainingEnergy)
+{
+  *stream->GetStream () << Simulator::Now().GetSeconds();
+  *stream->GetStream () << ", " << oldValue;
+  *stream->GetStream () << ", " << remainingEnergy;
+  *stream->GetStream () << std::endl;     
+  //NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "s Current remaining energy = " << remainingEnergy << "J");
+}
+
+void TotalEnergy (double oldValue, double totalEnergy)
+{
+  NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "s Total energy consumed by radio = " << totalEnergy << "J");
+}
 
 
 int main (int argc, char *argv[])
@@ -77,14 +96,21 @@ int main (int argc, char *argv[])
   int numberOfNodes = 4;
   // distance of nodes
   int step = 50;
-  Time applicationStart = Seconds (10);
-  Time simulationTime = Seconds (15);
+  double applicationStartSeconds = 100;
+  double simulationTimeSeconds = 110;
 #ifdef USE_APPLICATION
+  double trafficInterval = 10;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
+  bool energyModelEnabled = true;
+  double txPower = 0;
+  double initialNodeEnergy = 10;
 
+  int run = 1;
+  std::string routingProtocol ("rpl");
+  std::string rplConfigFilename ("rplConfig.csv");
   /// network
   /// nodes used in the example
   NodeContainer nodes;
@@ -95,14 +121,23 @@ int main (int argc, char *argv[])
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
+  cmd.AddValue("routingProtocol", "the routing protocol used", routingProtocol);
+  cmd.AddValue("rplConfigFilename", "filename of the RPL configuration", rplConfigFilename);
+  cmd.AddValue("run", "the run number", run);
+  cmd.AddValue("simulationTime", "the simulation time in seconds", simulationTimeSeconds);
+  cmd.AddValue("applicationStart", "the application start time in seconds", applicationStartSeconds);
+  cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
+  cmd.AddValue ("txPower", "Sending Power of the normal nodes.",txPower);
+  cmd.AddValue ("energyModelEnabled","Enables or disables the assignment of an energy model to the nodes", energyModelEnabled);
+  cmd.AddValue ("initialNodeEnergy","The available energy contained in the nodes battery", initialNodeEnergy);
 
   cmd.Parse (argc,argv);
 
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (0));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
+  RngSeedManager::SetSeed (1);
+  RngSeedManager::SetRun (run);
+
+  Time applicationStart = Seconds (applicationStartSeconds);
+  Time simulationTime = Seconds (simulationTimeSeconds);
 
   NS_LOG_UNCOND("rpl example\n\n");
 
@@ -139,6 +174,26 @@ int main (int argc, char *argv[])
   LrWpanHelper lrWpanHelper;
   // Add and install the LrWpanNetDevice for each node
   NetDeviceContainer lrwpanDevices = lrWpanHelper.Install(nodes);
+
+  EnergySourceContainer sources;
+  //StatisticsHelper statHelper;
+  if(energyModelEnabled)
+  {
+    
+    /*for (int i = 0; i< numberOfNodes; ++i)
+    {
+      Ptr<LrWpanPhy> phy = lrwpanDevices.Get(i)->GetObject<LrWpanNetDevice>()->GetPhy();
+      phy->SetAttribute("TxPower", DoubleValue(txPower));
+    }*/
+    BasicEnergySourceHelper basicSourceHelper;
+    basicSourceHelper.Set ("BasicEnergySourceInitialEnergyJ", DoubleValue (initialNodeEnergy));
+    basicSourceHelper.Set ("PeriodicEnergyUpdateInterval", TimeValue (Simulator::GetMaximumSimulationTime())); // do not reload the battery
+    sources = basicSourceHelper.Install(nodes);
+    LrWpanRadioEnergyModelHelper radioEnergyHelper;
+    DeviceEnergyModelContainer deviceModels = radioEnergyHelper.Install (lrwpanDevices, sources);
+    //statHelper.Install(nodes.Get(it->first), DynamicCast<LrWpanNetDevice>(devContainer.Get(it->first)), energyModelEnabled, simEndTime);
+  }
+  
 
   // Fake PAN association and short address assignment.
   // This is needed because the lr-wpan module does not provide (yet)
@@ -177,10 +232,23 @@ int main (int argc, char *argv[])
     deviceInterfaces.SetForwarding (i, true);
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-          "stateChanges_node_" + std::to_string(i) + "_" + "updatedPrefParent" + ".txt");
+          "RPLEXAMPLE_updatedPrefParent_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
   }
-  
+
+  if(energyModelEnabled)
+  {
+    // all sources are connected to node 1
+    // energy source
+    Ptr<BasicEnergySource> basicSourcePtr = DynamicCast<BasicEnergySource> (sources.Get (1));
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> remainingEnergy = asciiTraceHelper.CreateFileStream ("RPLEXAMPLE_remainingEnergy_node_" + std::to_string(1) + "_" + "" + ".txt");
+    basicSourcePtr->TraceConnectWithoutContext ("RemainingEnergy", MakeBoundCallback (&RemainingEnergy, remainingEnergy));
+    // device energy model
+    //Ptr<DeviceEnergyModel> basicRadioModelPtr = basicSourcePtr->FindDeviceEnergyModels ("ns3::LrWpanRadioEnergyModel").Get (0);
+    //NS_ASSERT (basicRadioModelPtr);
+    //basicRadioModelPtr->TraceConnectWithoutContext ("TotalEnergyConsumption", MakeCallback (&TotalEnergy));
+  }
 
 
   /*<Node> node;
@@ -225,7 +293,7 @@ int main (int argc, char *argv[])
     udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (numberOfNodes-1,1)));
     udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
     udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
-    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (10)));
+    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval)));
     ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
 
     apps.Start (applicationStart);

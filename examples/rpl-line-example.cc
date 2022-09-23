@@ -82,7 +82,7 @@ int main (int argc, char *argv[])
   double trafficInterval = 10;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
-  Time interPacketInterval = Seconds (1.);
+  Time interPacketInterval = Seconds (1.0);
 #endif
 
   std::string routingProtocol ("rpl");
@@ -109,8 +109,8 @@ int main (int argc, char *argv[])
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
 
-  Time applicationStart = Seconds (simulationTimeSeconds);
-  Time simulationTime = Seconds (applicationStartSeconds);
+  Time applicationStart = Seconds (applicationStartSeconds);
+  Time simulationTime = Seconds (simulationTimeSeconds);
 
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));

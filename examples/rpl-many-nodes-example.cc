@@ -195,8 +195,8 @@ int main (int argc, char *argv[])
   // normal random node placement
   // https://www.stapplet.com/normal.html
   int wantedMaxHops = 5;
-  double xMean = static_cast<double>(gridWidth)/2 * xStep;
-  double yMean = static_cast<double>(gridWidth)/2 * yStep;
+  double xMean = static_cast<double>((gridWidth)/2) * xStep;
+  double yMean = static_cast<double>((gridWidth)/2) * yStep;
   double xVariance = static_cast<double>(wantedMaxHops)/3 * xStep;
   double yVariance = static_cast<double>(wantedMaxHops)/3 * yStep;
   Ptr<PositionAllocator> positionAlloc = CreateObject<RandomBoxPositionAllocator> ();

@@ -74,11 +74,33 @@ Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
   }
 }
 
+Ptr<MobilityModel> GetMobilityModel(Ptr <Node> node){
+
+  Ptr<MobilityModel> mobilityModel = node->GetObject<MobilityModel> ();
+  NS_ASSERT_MSG (mobilityModel, "mobilityModel not installed on node");
+  //Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
+  if (mobilityModel)
+  {
+    return mobilityModel;
+  }else
+  {
+    return nullptr;
+  }
+}
+
 void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
 { 
   *stream->GetStream () << Simulator::Now().GetSeconds();
   *stream->GetStream () << ", " << rplNode.address;
   *stream->GetStream () << ", " << rplNode.rank;
+  *stream->GetStream () << std::endl;                                                                      
+}
+
+void RouteAddedTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplRoutingTableEntry entry)
+{ 
+  *stream->GetStream () << Simulator::Now().GetSeconds();
+  *stream->GetStream () << ", " << entry.GetDest ();
+  *stream->GetStream () << ", " << entry.GetInterface ();
   *stream->GetStream () << std::endl;                                                                      
 }
 
@@ -92,17 +114,21 @@ int main (int argc, char *argv[])
   // parameters
   bool verbose = true;
   int numberOfNodes = 8;
+  double applicationStartSeconds = 100;
+  double simulationTimeSeconds = 115;
   // distance of nodes
-  int xStep = 90;
-  int yStep = 50;
-  Time applicationStart = Seconds (10);
-  Time simulationTime = Seconds (15);
+  int xStep = 60;
+  int yStep = 55;
 #ifdef USE_APPLICATION
+  double trafficInterval = 10;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
 
+  int run = 1;
+  std::string routingProtocol ("rpl");
+  std::string rplConfigFilename ("rplConfig.csv");
   /// network
   /// nodes used in the example
   NodeContainer nodes;
@@ -113,8 +139,21 @@ int main (int argc, char *argv[])
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
+  cmd.AddValue("routingProtocol", "the routing protocol used", routingProtocol);
+  cmd.AddValue("rplConfigFilename", "filename of the RPL configuration", rplConfigFilename);
+  cmd.AddValue("run", "the run number", run);
+  cmd.AddValue("simulationTime", "the simulation time in seconds", simulationTimeSeconds);
+  cmd.AddValue("applicationStart", "the application start time in seconds", applicationStartSeconds);
+  cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
 
   cmd.Parse (argc,argv);
+
+  RngSeedManager::SetSeed (1);
+  RngSeedManager::SetRun (run);
+
+  Time applicationStart = Seconds (applicationStartSeconds);
+  Time simulationTime = Seconds (simulationTimeSeconds);
+
 
   Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
@@ -126,8 +165,35 @@ int main (int argc, char *argv[])
 
   // ---------------- Create Nodes -------------------------------
 
-  // create nodes
+  MobilityHelper mobility;
+  //std::list<ns3::Vector2D> nodePositions;
+  //nodePositions.push_back (Vector2D ());
+  Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
+  int xStart = 1000;
+  int yStart = 1000;
+  positionAlloc->Add(Vector3D (xStart,yStart,0));
+  positionAlloc->Add(Vector3D (xStart-xStep,yStart,0));
+  positionAlloc->Add(Vector3D (xStart+xStep,yStart,0));
+  positionAlloc->Add(Vector3D (xStart-2*xStep,yStart+yStep,0));
+  positionAlloc->Add(Vector3D (xStart-2*xStep,yStart-yStep,0));
+  positionAlloc->Add(Vector3D (xStart+2*xStep,yStart+yStep,0));
+  positionAlloc->Add(Vector3D (xStart+2*xStep,yStart-yStep,0));
+  positionAlloc->Add(Vector3D (xStart-3*xStep,yStart+yStep,0));
+  //positionAlloc->Add("position_" + mode + ".csv");
+  mobility.SetPositionAllocator (positionAlloc);
+  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  numberOfNodes = positionAlloc->GetSize();
+
+
   nodes.Create(numberOfNodes);
+  mobility.Install (nodes);
+
+  for (int i = 0; i< numberOfNodes; ++i)
+  {
+    std::cout << "node " << +i << ": " << GetMobilityModel (nodes.Get (i))->GetPosition () << std::endl;
+  }
+  // create nodes
+  /*nodes.Create(numberOfNodes);
 
   int treeLayers = std::ceil (std::log2 (numberOfNodes+1));
   int lastLayerNodes = pow(2, treeLayers);
@@ -159,7 +225,7 @@ int main (int argc, char *argv[])
       layerNodes.Add (nodes.Get (iterNodeNum));
     }
     mobility.Install (layerNodes);
-  }
+  }*/
   
 
   // ---------------- Create Devices -------------------------------
@@ -216,8 +282,12 @@ int main (int argc, char *argv[])
     deviceInterfaces.SetForwarding (i, true);
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-          "stateChanges_node_" + std::to_string(i) + "_" + "updatedPrefParent" + ".txt");
+          "RPLEXAMPLE_updatedPrefParent_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+
+    Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_routeAdded_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
+    GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
   }
   
 
@@ -264,7 +334,7 @@ int main (int argc, char *argv[])
     udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (numberOfNodes-1,1)));
     udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
     udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
-    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (10)));
+    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval)));
     ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
 
     apps.Start (applicationStart);

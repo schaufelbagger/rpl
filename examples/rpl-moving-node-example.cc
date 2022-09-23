@@ -143,15 +143,18 @@ int main (int argc, char *argv[])
   // distance of nodes
   int xStep = 100;//70
   int yStep = 100;
-  Time applicationStart = Seconds (10);
-  Time simulationTime = Seconds (1000);
+  double applicationStartSeconds = 10;
+  double simulationTimeSeconds = 1000;
 #ifdef USE_APPLICATION
+  double trafficInterval = 0.1;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
 
   int run = 1;
+  std::string routingProtocol ("rpl");
+  std::string rplConfigFilename ("rplConfig.csv");
   /// network
   int numberOfNodes = numberOfGridNodes + numberOfMovingNodes;
   /// nodes used in the example
@@ -163,14 +166,24 @@ int main (int argc, char *argv[])
   /// interfaces used in the example
   Ipv6InterfaceContainer interfaces;
 
+
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
+  cmd.AddValue("routingProtocol", "the routing protocol used", routingProtocol);
   cmd.AddValue("run", "the run number", run);
-
+  cmd.AddValue("simulationTime", "the simulation time", simulationTimeSeconds);
+  cmd.AddValue("applicationStart", "the application start time", applicationStartSeconds);
+  cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
+  cmd.AddValue("numberOfNodes", "number of nodes", numberOfNodes);
+  cmd.AddValue("xStep", "the distance between nodes in x direction", xStep);
+  cmd.AddValue("yStep", "the distance between nodes in y direction", yStep);
   cmd.Parse (argc,argv);
 
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
+
+  Time applicationStart = Seconds (simulationTimeSeconds);
+  Time simulationTime = Seconds (applicationStartSeconds);
 
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
