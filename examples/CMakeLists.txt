@@ -1,7 +1,14 @@
 build_lib_example(
     NAME rpl-example
     SOURCE_FILES rpl-example.cc
-    LIBRARIES_TO_LINK ${librpl}
+    LIBRARIES_TO_LINK
+    ${librpl}
+    ${libnetwork}
+    ${libsixlowpan}
+    ${libinternet}
+    ${libinternet-apps}
+    ${libenergy}
+
 )
 
 build_lib_example(
@@ -90,4 +97,5 @@ build_lib_example(
     ${libsixlowpan}
     ${libinternet}
     ${libinternet-apps}
+    ${libenergy}
 )
