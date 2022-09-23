@@ -36,7 +36,7 @@ namespace rpl {
 
 struct RplNode 
 {
-  uint16_t rank = INFINITE_RANK;
+  mutable uint16_t rank = INFINITE_RANK;
   Ipv6Address address = Ipv6Address ("::");
   uint32_t interface = 0xFFFFFFFF;
   mutable uint8_t dtsn = 0;

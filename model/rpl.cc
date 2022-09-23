@@ -837,20 +837,31 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     if (m_ocp.DagRank (dioHeader.GetRank ()) < m_ocp.DagRank (m_rank))
     {
       RplNode newNode = {dioHeader.GetRank (), ipv6Header.GetSource (), incomingInterface, dioHeader.GetDtsn ()};
-      auto nodeIter = m_dodagParents.find (newNode);
       bool nodeDtsnChanged = false;
       bool addedParentNode = false;
-      if (nodeIter != m_dodagParents.end () ) 
+      bool foundParent = false;
+      for (auto &dodagParent : m_dodagParents)
       {
-        // in dodag parents
-        if (nodeIter->dtsn != dioHeader.GetDtsn ())
+        // if node is already in the dodag parent set - update it
+        if (dodagParent.address == newNode.address && dodagParent.interface == newNode.interface)
         {
-          nodeDtsnChanged = true;
-          //m_dodagParents.erase (nodeIter);
-          nodeIter->dtsn = dioHeader.GetDtsn ();
+          foundParent = true;
+          if (dodagParent.dtsn != dioHeader.GetDtsn ())
+          {
+            nodeDtsnChanged = true;
+            //m_dodagParents.erase (foundNode);
+            dodagParent.dtsn = dioHeader.GetDtsn ();
+          }
+          if (dodagParent.rank != dioHeader.GetRank ())
+          {
+            dodagParent.rank = dioHeader.GetRank ();
+          }
+          break;
         }
-        
-      }else
+      }
+     // m_dodagParents.find (newNode);
+
+      if (!foundParent) 
       {
         addedParentNode = true;
         m_dodagParents.insert (newNode);
@@ -861,7 +872,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
       // checks if dtsn is updated to include self route information for DAO messages
       for (RplNode daoParent : m_daoParents)
       {
-        if (daoParent.address == ipv6Header.GetSource ())
+        if (daoParent.address == ipv6Header.GetSource () && daoParent.interface == incomingInterface)
         {
           if (nodeDtsnChanged || addedParentNode)
           {
@@ -914,7 +925,7 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   {
     for (RplNode daoParent : m_daoParents)
     {
-      if (daoParent.address == ipv6Header.GetSource ())
+      if (daoParent.address == ipv6Header.GetSource () && daoParent.interface == incomingInterface)
       {
         NS_ABORT_MSG ("loop detected - received DAO from DAO parent");
       }
@@ -1037,7 +1048,6 @@ void RoutingProtocol::UpdatePreferredParent ()
     return;
   }
   
-
   RplNode newPreferredParent = m_ocp.GetPreferredParent (m_dodagParents, m_preferredParent);
 
   if (newPreferredParent.rank == INFINITE_RANK) 
@@ -1045,7 +1055,7 @@ void RoutingProtocol::UpdatePreferredParent ()
     NS_ABORT_MSG ("Objective function couldn't select preferred parent");
   }
 
-  if (newPreferredParent.address != m_preferredParent.address)
+  if (newPreferredParent.address != m_preferredParent.address || m_preferredParent.interface != newPreferredParent.interface)
   {
     NS_LOG_LOGIC ("Updating new preferred parent");
     m_updatedPrefParentTrace (newPreferredParent);
@@ -1084,6 +1094,13 @@ void RoutingProtocol::UpdatePreferredParent ()
     m_preferredParent.dtsn = newPreferredParent.dtsn;
   }
 
+  // when only the rank of the prefered parent changed, update it
+  if (newPreferredParent.rank != m_preferredParent.rank)
+  {
+    m_updatedPrefParentTrace (newPreferredParent);
+    m_preferredParent = newPreferredParent;
+  }
+
   //calculate new node rank from new parent
   uint16_t newRank = m_ocp.CalculateRank (newPreferredParent.rank);
   if (newRank != m_rank)
@@ -1100,7 +1117,7 @@ void RoutingProtocol::UpdateDaoParents ()
 {
   std::set<RplNode> daoParents;
   daoParents.insert (m_preferredParent);
-  // if more than 1 DAO parent shall be used, try got get
+  // if more than 1 DAO parent shall be used, try to get additional ones
   if (m_maxDaoParents > 1)
   {
     int daoParentCounter = 1;
@@ -1334,7 +1351,8 @@ void RoutingProtocol::PrintRoutingTable (Ptr<OutputStreamWrapper> stream, Time::
 void RoutingProtocol::PrintRoutingTable (std::ostream &os) const
 {
   os << "Node: " << m_ipv6->GetObject<Node> ()->GetId ()
-                        << ", RPL Routing table" << std::endl;
+                  << "; Time: " << Now ().As (Time::S) << "s"
+                  << ", RPL Routing table" << std::endl;
   m_routingTable.Print (os);
 }
 
@@ -1665,13 +1683,14 @@ void RoutingProtocol::SendDao (bool isNoPath)
   // Send to all dao parents (currently only the preferred parent)
   for (RplNode daoParent : m_daoParents)
   {
+    Ptr<Packet> daoPacket = packet->Copy ();
     NS_LOG_LOGIC ("RPL: Send DAO to DAO parent " << daoParent.address);
     SendOnAllInterfaces (packet, Inet6SocketAddress (daoParent.address));
 
     if (m_k && !isNoPath)
     {
       EventId event = Simulator::Schedule (m_daoAckTimeout, &RoutingProtocol::ResendDao, this, m_daoSequence.GetValue (), daoParent);
-      SentDao newDao = {m_daoSequence.GetValue (), daoParent, packet, 1, event};
+      SentDao newDao = {m_daoSequence.GetValue (), daoParent, daoPacket, 1, event};
       m_sentDaos.push_back (newDao);
       //m_daoAckTimer.Schedule ();
     }
@@ -1696,7 +1715,7 @@ void RoutingProtocol::ResendDao (uint8_t daoSequence, RplNode daoParent)
       if (iter->daoMessageCounter <= m_numberOfDaoRetries)
       {
         NS_LOG_LOGIC ("Resending Dao");
-        SendOnAllInterfaces (iter->daoPacket, Inet6SocketAddress (iter->daoParent.address));
+        SendOnAllInterfaces (iter->daoPacket->Copy (), Inet6SocketAddress (iter->daoParent.address));
         EventId event = Simulator::Schedule (m_daoAckTimeout, &RoutingProtocol::ResendDao, this, daoSequence, daoParent);
         iter->event = event;
         iter->daoMessageCounter++;
