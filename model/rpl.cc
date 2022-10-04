@@ -1069,7 +1069,6 @@ void RoutingProtocol::UpdatePreferredParent ()
       iter = m_sentDaos.erase(iter);
     }
     m_preferredParent = newPreferredParent;
-    m_routingTable.SetPreferredParentRoute (RplRoutingTableEntry (newPreferredParent.address, newPreferredParent.interface));
     m_routingTable.AddRoute (newPreferredParent.address, newPreferredParent.interface, 1, m_dodagId, m_instanceId, m_dtsn, 0xFF, false);
     if (newPreferredParent.address != m_dodagId)
     {
@@ -1202,7 +1201,6 @@ void RoutingProtocol::ClearPreferredParentRoutes()
   }
 
   //NS_ABORT_MSG_IF (m_routingTable.Empty (), "Routes are empty");
-  m_routingTable.SetPreferredParentRoute (RplRoutingTableEntry ());
   // delete routes where destination or next hop address is the preferred parent address
   m_routingTable.RemoveRoutesOfTarget (m_preferredParent.address, m_preferredParent.interface);
   
@@ -1442,6 +1440,7 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
 {
   NS_LOG_FUNCTION (this << dst << setSource << interface);
   Ptr<Ipv6Route> rtentry = 0;
+
   // when sending on link-local multicast, there have to be interface specified
   if (dst.IsLinkLocalMulticast ())
   {
@@ -1515,14 +1514,14 @@ Ptr<Ipv6Route> RoutingProtocol::Lookup (Ipv6Address dst, bool setSource, Ptr<Net
   {
     if (m_preferredParent.rank != INFINITE_RANK)
     {
-      return CreateRouteFromTableEntry (m_routingTable.GetPreferredParentRoute (), setSource, dst);
+      RplRoutingTableEntry defaultRoute = RplRoutingTableEntry (dst, m_preferredParent.address, m_preferredParent.interface);
+      return CreateRouteFromTableEntry (defaultRoute, setSource, dst);
     }
     else
     {
       NS_LOG_LOGIC ("No preferred parent set - returning empty route");
       return rtentry;
     }
-    
   }
   
 }

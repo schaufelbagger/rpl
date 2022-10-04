@@ -200,22 +200,6 @@ public:
   void Print (std::ostream &os) const;
 
   /**
-   * \brief Set the preferred parent route
-   * \param metric the preferred parent route
-   */
-  void SetPreferredParentRoute (RplRoutingTableEntry preferredParentRoute)
-  {
-    m_preferredParentRoute = preferredParentRoute;
-  }
-  /**
-   * \brief Get the preferred parent route
-   * \return the preferred parent route
-   */
-  RplRoutingTableEntry GetPreferredParentRoute () const
-  {
-    return m_preferredParentRoute;
-  }
-  /**
    * \brief Set the routing table
    * \param metric the routing table
    */
@@ -241,7 +225,6 @@ public:
   }
 
 private:
-  RplRoutingTableEntry m_preferredParentRoute;
   std::list<RplRoutingTableEntry> m_routingTable;
   TracedCallback<RplRoutingTableEntry> m_routeAddedTrace;
 };
