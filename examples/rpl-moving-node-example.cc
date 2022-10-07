@@ -47,6 +47,8 @@
 
 #include "ns3/rpl-state.h"
 
+#include "rpl-example-helper.h"
+
 #define USE_SIXLOWPAN
 #define USE_APPLICATION
 
@@ -55,46 +57,6 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("movingNodeExample");
 
-Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
-  NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
-  Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
-  NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
-  Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
-  if (rpl)
-  {
-    return rpl;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-Ptr<MobilityModel> GetMobilityModel(Ptr <Node> node){
-
-  Ptr<MobilityModel> mobilityModel = node->GetObject<MobilityModel> ();
-  NS_ASSERT_MSG (mobilityModel, "mobilityModel not installed on node");
-  //Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
-  if (mobilityModel)
-  {
-    return mobilityModel;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-// Prints actual position and velocity when a course change event occurs
-void CourseChangeTraceSink (Ptr<OutputStreamWrapper> stream, Ptr<const MobilityModel> mobility)
-{
-  Vector pos = mobility->GetPosition (); // Get position
-  Vector vel = mobility->GetVelocity (); // Get velocity
- 
-  // Prints position and velocities
-  *stream->GetStream () << Simulator::Now ().GetSeconds() << " POS: x=" << pos.x << ", y=" << pos.y
-      << ", z=" << pos.z << "; VEL:" << vel.x << ", y=" << vel.y
-      << ", z=" << vel.z << std::endl;
-}
 
 void TestTrace ( Ptr<ns3::MobilityModel const> newValue)
 {
@@ -102,29 +64,6 @@ void TestTrace ( Ptr<ns3::MobilityModel const> newValue)
   << ": Position " << newValue->GetPosition () 
   << ", Velocity " << newValue->GetVelocity ()
   << std::endl;
-}
-
-void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << rplNode.address;
-  *stream->GetStream () << ", " << rplNode.rank;
-  *stream->GetStream () << std::endl;                                                                      
-}
-
-
-
-int GetNextHighestSquareEdgeLength(int number)
-{
-  // up to sqrt (INT_MAX)
-  for (int i = 2; i <= 46340; i++)
-  {
-    if (i*i >= number )
-    {
-      return i;
-    }
-  }
-  return 0;
 }
 
 
@@ -146,7 +85,8 @@ int main (int argc, char *argv[])
   double applicationStartSeconds = 10;
   double simulationTimeSeconds = 1000;
 #ifdef USE_APPLICATION
-  double trafficInterval = 0.1;
+  double trafficInterval = 1.0;
+  int maxPackets = 2000;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
@@ -367,7 +307,8 @@ int main (int argc, char *argv[])
     udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (rootNode->GetId (),1)));
     udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
     udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
-    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (10)));
+    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval)));
+    udpClientHelper.SetAttribute ("MaxPackets", UintegerValue (maxPackets));
     ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
 
     apps.Start (applicationStart);

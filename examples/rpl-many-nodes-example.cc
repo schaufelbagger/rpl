@@ -47,6 +47,8 @@
 
 #include "ns3/rpl-state.h"
 
+#include "rpl-example-helper.h"
+
 #define USE_SIXLOWPAN
 #define USE_APPLICATION
 //#define USE_GRID_NODE_POSITION
@@ -56,45 +58,6 @@
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("manyNodesExample");
-
-Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
-  NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
-  Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
-  NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
-  Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
-  if (rpl)
-  {
-    return rpl;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << rplNode.address;
-  *stream->GetStream () << ", " << rplNode.rank;
-  *stream->GetStream () << std::endl;                                                                      
-}
-
-
-
-int GetNextHighestSquareEdgeLength(int number)
-{
-  // up to sqrt (INT_MAX)
-  for (int i = 2; i <= 46340; i++)
-  {
-    if (i*i >= number )
-    {
-      return i;
-    }
-  }
-  return 0;
-}
-
 
 
 int main (int argc, char *argv[])
@@ -113,7 +76,9 @@ int main (int argc, char *argv[])
   Time applicationStart = Seconds (10);
   Time simulationTime = Seconds (15);
 #ifdef USE_APPLICATION
+  double trafficInterval = 10;
   uint32_t packetSize = 10;
+  int maxPackets = 2000;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
@@ -128,6 +93,7 @@ int main (int argc, char *argv[])
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
+  cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
 
   cmd.Parse (argc,argv);
 
@@ -296,7 +262,8 @@ int main (int argc, char *argv[])
     udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (rootNode->GetId (),1)));
     udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
     udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
-    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (10)));
+    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval)));
+    udpClientHelper.SetAttribute ("MaxPackets", UintegerValue (maxPackets));
     ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
 
     apps.Start (applicationStart);

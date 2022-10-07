@@ -52,57 +52,14 @@
 #include "ns3/lr-wpan-module.h"
 #include "ns3/yans-wifi-helper.h"
 
+#include "rpl-example-helper.h"
+
 //#define USE_WIFI
 #define USE_SIXLOWPAN
 #define USE_APPLICATION
 
 using namespace ns3;
 
-
-Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
-  NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
-  Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
-  NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
-  Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
-  if (rpl)
-  {
-    return rpl;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-Ptr<MobilityModel> GetMobilityModel(Ptr <Node> node){
-
-  Ptr<MobilityModel> mobilityModel = node->GetObject<MobilityModel> ();
-  NS_ASSERT_MSG (mobilityModel, "mobilityModel not installed on node");
-  //Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
-  if (mobilityModel)
-  {
-    return mobilityModel;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << rplNode.address;
-  *stream->GetStream () << ", " << rplNode.rank;
-  *stream->GetStream () << std::endl;                                                                      
-}
-
-void RouteAddedTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplRoutingTableEntry entry)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << entry.GetDest ();
-  *stream->GetStream () << ", " << entry.GetInterface ();
-  *stream->GetStream () << std::endl;                                                                      
-}
 
 int main (int argc, char *argv[])
 {
@@ -118,9 +75,10 @@ int main (int argc, char *argv[])
   double simulationTimeSeconds = 115;
   // distance of nodes
   int xStep = 60;
-  int yStep = 55;
+  int yStep = 50;
 #ifdef USE_APPLICATION
   double trafficInterval = 10;
+  int maxPackets = 2000;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
@@ -136,7 +94,8 @@ int main (int argc, char *argv[])
   NetDeviceContainer devices;
   /// interfaces used in the example
   Ipv6InterfaceContainer interfaces;
-
+  int setup = 0;
+  
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
   cmd.AddValue("routingProtocol", "the routing protocol used", routingProtocol);
@@ -145,8 +104,11 @@ int main (int argc, char *argv[])
   cmd.AddValue("simulationTime", "the simulation time in seconds", simulationTimeSeconds);
   cmd.AddValue("applicationStart", "the application start time in seconds", applicationStartSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
+  cmd.AddValue("setup", "if traffix shall be sent fron one leaf to another one (5 to 7)", setup);
 
   cmd.Parse (argc,argv);
+
+  std::string paramString = "_routingProtocol_" + routingProtocol + "_run_" + std::to_string(run) + "_setup_" + std::to_string(setup) + "_trafficInterval_" + std::to_string(trafficInterval);
 
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
@@ -155,11 +117,11 @@ int main (int argc, char *argv[])
   Time simulationTime = Seconds (simulationTimeSeconds);
 
 
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (0));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (0));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
 
   NS_LOG_UNCOND("rpl example\n\n");
 
@@ -178,7 +140,7 @@ int main (int argc, char *argv[])
   positionAlloc->Add(Vector3D (xStart-2*xStep,yStart-yStep,0));
   positionAlloc->Add(Vector3D (xStart+2*xStep,yStart+yStep,0));
   positionAlloc->Add(Vector3D (xStart+2*xStep,yStart-yStep,0));
-  positionAlloc->Add(Vector3D (xStart-3*xStep,yStart+yStep,0));
+  positionAlloc->Add(Vector3D (xStart-3*xStep,yStart+2*yStep,0));
   //positionAlloc->Add("position_" + mode + ".csv");
   mobility.SetPositionAllocator (positionAlloc);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
@@ -282,11 +244,11 @@ int main (int argc, char *argv[])
     deviceInterfaces.SetForwarding (i, true);
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-          "RPLEXAMPLE_updatedPrefParent_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
+          "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
 
     Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
-          "RPLEXAMPLE_routeAdded_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
+          "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
   }
   
@@ -323,30 +285,68 @@ int main (int argc, char *argv[])
 #endif*/
 
   // Add random application to generate (passive) traffic
-  UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(deviceInterfaces.GetAddress(numberOfNodes-1,1), 6000);
+  UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(deviceInterfaces.GetAddress(0,1), 6000);
   // Multicast disabled for now!
   //UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(Ipv6Address (IPV6_GROUP_ADDR), 6000);
   UdpEchoServerHelper udpServerHelper = UdpEchoServerHelper(6000);
   
-  // Add random app to three nodes:
-  for (int n : {0})
+  // Add all leaf nodes
+  std::vector<int> clients;
+  std::vector<int> servers;
+  if (setup == 0)
   {
-    udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (numberOfNodes-1,1)));
+    clients = {4, 5, 6, 7};
+    servers = {0};
+  }else if (setup == 1)
+  {
+    clients = {5};
+    servers = {7};
+  }else if (setup == 2)
+  {
+    clients = {7};
+    servers = {0};
+  }else
+  {
+    NS_ABORT_MSG ("Unkown setup number " + std::to_string(setup) + " given!");
+  }
+
+  for (int n : clients)
+  {
+    if (setup == 1)
+    {
+      udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (7,1)));
+    }else
+    {
+      udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (0,1)));
+    }
+    //udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (0,1)));
     udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
     udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
     udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval)));
+    udpClientHelper.SetAttribute ("MaxPackets", UintegerValue (maxPackets));
     ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
 
     apps.Start (applicationStart);
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updClientRxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updClientRxWrapper));
+
+    Ptr<OutputStreamWrapper> updClientTxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientSend_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("TxWithAddresses", MakeBoundCallback (&UdpTxTraceWithAddressesSink, updClientTxWrapper));
   }
 
-  for (int n : {numberOfNodes-1})
+  for (int n : servers)
   {
     udpServerHelper.SetAttribute ("Port", UintegerValue (6000));
     ApplicationContainer apps =  udpServerHelper.Install(nodes.Get(n));
     apps.Start (Seconds (1.0));
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updServerWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpServerReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updServerWrapper));
   }
 
 

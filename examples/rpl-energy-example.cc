@@ -43,6 +43,8 @@
 #include "ns3/lr-wpan-radio-energy-model.h"
 #include "ns3/lr-wpan-radio-energy-model-helper.h"
 
+#include "rpl-example-helper.h"
+
 //#define USE_WIFI
 #define USE_SIXLOWPAN
 #define USE_APPLICATION
@@ -50,40 +52,6 @@
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("energyExample");
-
-Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
-  NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
-  Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
-  NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
-  Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
-  if (rpl)
-  {
-    return rpl;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << rplNode.address;
-  *stream->GetStream () << ", " << rplNode.rank;
-  *stream->GetStream () << std::endl;                                                                      
-}
-
-void RemainingEnergy (Ptr<OutputStreamWrapper> stream, double oldValue, double remainingEnergy)
-{
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << oldValue;
-  *stream->GetStream () << ", " << remainingEnergy;
-  *stream->GetStream () << std::endl;     
-  //NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "s Current remaining energy = " << remainingEnergy << "J");
-}
-
-
 
 
 int main (int argc, char *argv[])

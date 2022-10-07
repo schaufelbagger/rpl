@@ -47,6 +47,9 @@
 
 #include "ns3/rpl-state.h"
 
+#include "rpl-example-helper.h"
+#include "timestamp-tag.h"
+
 //#define USE_WIFI
 #define USE_SIXLOWPAN
 #define USE_APPLICATION
@@ -55,110 +58,6 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("alternatePathExample");
 
-Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
-  NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
-  Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
-  NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
-  Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
-  if (rpl)
-  {
-    return rpl;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-Ptr<RipNg> GetRipNg(Ptr <Node> node){
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
-  NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
-  Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
-  NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
-  Ptr<Ipv6ListRouting> listRouting = DynamicCast<Ipv6ListRouting> (proto);
-  int16_t priority = -1;
-  Ptr<RipNg> ripNg = DynamicCast<RipNg> (listRouting->GetRoutingProtocol (1, priority));
-  std::cout << "priority: " << +priority << std::endl;
-
-  if (ripNg)
-  {
-    return ripNg;
-  }else
-  {
-    return nullptr;
-  }
-}
-
-void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << rplNode.address;
-  *stream->GetStream () << ", " << rplNode.rank;
-  *stream->GetStream () << std::endl;                                                                      
-}
-
-
-
-void SilenceNode (Ptr<Node> node, int32_t interface)
-{
-  NS_ASSERT (node);
-  NS_LOG_FUNCTION ("silencing node " << node );
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6>();
-
-  NS_ASSERT(ipv6);
-  if (!ipv6->IsUp (interface))
-  {
-    NS_LOG_WARN ("ipv6 interface was not up! :" << ipv6->IsUp (interface));
-  }
-  NS_LOG_DEBUG ("was Up: " << ipv6->IsUp (interface));
-  ipv6->SetDown (interface);
-}
-
-void TurnOnNode (Ptr<Node> node, int32_t interface, Ipv6Address address)
-{
-  NS_ASSERT (node);
-  NS_LOG_FUNCTION ("turning on node " << node );
-  Ptr<Ipv6> ipv6 = node->GetObject<Ipv6>();
-
-  NS_ASSERT(ipv6);
-  if (ipv6->IsUp (interface))
-  {
-    NS_LOG_WARN ("ipv6 interface was up! :" << ipv6->IsUp (interface));
-  }
-  NS_LOG_DEBUG ("was Down: " << ipv6->IsUp (interface));
-
-  Ipv6InterfaceAddress ipv6Addr = Ipv6InterfaceAddress (address);
-
-  ipv6->AddAddress (interface, ipv6Addr);
-  ipv6->SetMetric (interface, 1);
-  ipv6->SetUp (interface);
-}
-
-
-void UdpRxTraceWithAddressesSink (Ptr<OutputStreamWrapper> stream, Ptr< const Packet > packet, const Address & from, const Address & localAddress)
-{
-  *stream->GetStream () << Simulator::Now ().GetSeconds()
-      << ", " << Inet6SocketAddress::ConvertFrom (from).GetIpv6 ()
-      << ", " << Inet6SocketAddress::ConvertFrom (localAddress).GetIpv6 () << std::endl;
-}
-
-void RouteAddedTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplRoutingTableEntry entry)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << entry.GetDest ();
-  *stream->GetStream () << ", " << entry.GetGateway ();
-  *stream->GetStream () << ", " << entry.GetInterface ();
-  *stream->GetStream () << std::endl;
-}
-
-void RipNgRouteAddedTraceSink(Ptr<OutputStreamWrapper> stream, RipNgRoutingTableEntry entry)
-{ 
-  *stream->GetStream () << Simulator::Now().GetSeconds();
-  *stream->GetStream () << ", " << entry.GetDest ();
-  *stream->GetStream () << ", " << entry.GetGateway ();
-  *stream->GetStream () << ", " << entry.GetInterface ();
-  *stream->GetStream () << std::endl;                                                                      
-}
 
 int main (int argc, char *argv[])
 {
@@ -194,6 +93,7 @@ int main (int argc, char *argv[])
   NetDeviceContainer devices;
   /// interfaces used in the example
   Ipv6InterfaceContainer interfaces;
+  bool node1Root = false;
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
@@ -205,7 +105,7 @@ int main (int argc, char *argv[])
   cmd.AddValue("silenceNodeTime", "the time when the node 1 shall be silenced in seconds", silenceNodeTimeSeconds);
   cmd.AddValue("turnOnNodeTime", "the time when node 1 shall be turned on again in seconds", turnOnNodeTimeSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
-  
+  cmd.AddValue("node1Root", "sets node 0 as backuproot and node 1 as root", node1Root);
   
   //cmd.AddValue("numberOfNodes", "number of nodes", numberOfNodes);
 
@@ -284,8 +184,17 @@ int main (int argc, char *argv[])
     // you can configure RPL attributes here using rpl.Set(name, value)
     stack.SetRoutingHelper (rpl);
     stack.Install (nodes);
-    //rpl.AssignDisMop (NodeContainer (nodes.Get (1)) , rpl::DIS_MOP_SEND, Seconds (1), 5, RPL_DEFAULT_INSTANCE, rpl::MOP_STORING_NO_MULTICAST);
-    rpl.AssignRoot (NodeContainer (nodes.Get (0)) );
+    if (node1Root)
+    {
+      rpl.AssignRoot (NodeContainer (nodes.Get (1)) );
+      //rpl.AssignDisMop (NodeContainer (nodes.Get (4)) , rpl::DIS_MOP_SEND, Seconds (1), 5, 1, rpl::MOP_STORING_NO_MULTICAST);
+    }
+    else
+    {
+      rpl.AssignRoot (NodeContainer (nodes.Get (0)) );
+    }
+    
+    
 
     Ipv6AddressHelper ipv6;
     ipv6.SetBase (Ipv6Address ("2001:2::"), Ipv6Prefix (64));
@@ -398,6 +307,8 @@ int main (int argc, char *argv[])
     udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval)));
     udpClientHelper.SetAttribute ("MaxPackets", UintegerValue (maxPackets));
     ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
+
+    //udpClientHelper.SetFill(apps.Get(0), std::to_string(Simulator::Now().GetSeconds()) );
 
     apps.Start (applicationStart);
     apps.Stop (simulationTime);
