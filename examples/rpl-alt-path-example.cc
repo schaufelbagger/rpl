@@ -68,7 +68,7 @@ int main (int argc, char *argv[])
 
   // parameters
   bool verbose = true;
-  int numberOfNodes;
+  int numberOfNodes = 5;
   // distance of nodes
   double applicationStartSeconds = 100;
   double simulationTimeSeconds = 500;
@@ -86,6 +86,10 @@ int main (int argc, char *argv[])
   int run = 1;
   std::string routingProtocol ("rpl");
   std::string rplConfigFilename ("rplConfig.csv");
+  int appSetup = 0;
+  int networkSetup = 0;
+  uint8_t dioIntervalDoublings = DEFAULT_DIO_INTERVAL_DOUBLINGS;
+  uint8_t dioIntervalMin = DEFAULT_DIO_INTERVAL_MIN;
   /// network
   /// nodes used in the example
   NodeContainer nodes;
@@ -93,7 +97,7 @@ int main (int argc, char *argv[])
   NetDeviceContainer devices;
   /// interfaces used in the example
   Ipv6InterfaceContainer interfaces;
-  bool node1Root = false;
+
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
@@ -105,7 +109,9 @@ int main (int argc, char *argv[])
   cmd.AddValue("silenceNodeTime", "the time when the node 1 shall be silenced in seconds", silenceNodeTimeSeconds);
   cmd.AddValue("turnOnNodeTime", "the time when node 1 shall be turned on again in seconds", turnOnNodeTimeSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
-  cmd.AddValue("node1Root", "sets node 0 as backuproot and node 1 as root", node1Root);
+  cmd.AddValue("dioIntervalDoublings", "the RPL DIO Trickle timer Interval Doublings parameter", dioIntervalDoublings);
+  cmd.AddValue("dioIntervalMin", "the RPL DIO Trickle timer Interval Min parameter", dioIntervalMin);
+
   
   //cmd.AddValue("numberOfNodes", "number of nodes", numberOfNodes);
 
@@ -113,6 +119,9 @@ int main (int argc, char *argv[])
 
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
+
+  std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
+  paramString = "_silenceNodeTime_" + std::to_string(silenceNodeTimeSeconds) + "_turnOnNodeTime_" + std::to_string(turnOnNodeTimeSeconds) + "_DIDoublings_" + std::to_string(dioIntervalDoublings) + "_DIMin_" + std::to_string(dioIntervalMin) + paramString;
 
   Time applicationStart = Seconds (applicationStartSeconds);
   Time simulationTime = Seconds (simulationTimeSeconds);
@@ -124,7 +133,7 @@ int main (int argc, char *argv[])
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::DelayFirstProbe", TimeValue (Seconds(60*60)));
   
-  Config::SetDefault ("ns3::RipNg::SplitHorizon", EnumValue (RipNg::POISON_REVERSE));
+  //Config::SetDefault ("ns3::RipNg::SplitHorizon", EnumValue (RipNg::POISON_REVERSE));
   
   NS_LOG_UNCOND("rpl alt-path example\n\n");
 
@@ -182,17 +191,15 @@ int main (int argc, char *argv[])
   {
     RplHelper rpl;
     // you can configure RPL attributes here using rpl.Set(name, value)
+    // DIO Intervall Max = 2^DIOIntervalMin * 2^DIOIntervalDoublings
+    // DIO Intervall Max = 8.192s
+    rpl.Set ("DIOIntervalDoublings", UintegerValue (dioIntervalDoublings));
+    rpl.Set ("DIOIntervalMin", UintegerValue (dioIntervalMin));
+
     stack.SetRoutingHelper (rpl);
     stack.Install (nodes);
-    if (node1Root)
-    {
-      rpl.AssignRoot (NodeContainer (nodes.Get (1)) );
-      //rpl.AssignDisMop (NodeContainer (nodes.Get (4)) , rpl::DIS_MOP_SEND, Seconds (1), 5, 1, rpl::MOP_STORING_NO_MULTICAST);
-    }
-    else
-    {
-      rpl.AssignRoot (NodeContainer (nodes.Get (0)) );
-    }
+
+    rpl.AssignRoot (NodeContainer (nodes.Get (0)) );
     
     
 
@@ -200,50 +207,6 @@ int main (int argc, char *argv[])
     ipv6.SetBase (Ipv6Address ("2001:2::"), Ipv6Prefix (64));
     
     deviceInterfaces = ipv6.Assign (devices);
-  }
-  else if (routingProtocol == "ripng")
-  {
-    Ipv6ListRoutingHelper listRH;
-    RipNgHelper ripNgRouting;
-    Ipv6StaticRoutingHelper staticRh;
-
-    listRH.Add (ripNgRouting, 0);
-    listRH.Add (staticRh, 5);
-  
-    stack.SetRoutingHelper (listRH);
-    stack.Install (nodes);
-
-    Ipv6AddressHelper ipv6;
-    ipv6.SetBase (Ipv6Address ("2001:1::"), Ipv6Prefix (64));
-    Ipv6InterfaceContainer iic1 = ipv6.Assign (NetDeviceContainer (devices.Get (0)));
-    iic1.SetForwarding (0, true);
-    deviceInterfaces.Add (iic1);
-    //iic1.SetDefaultRouteInAllNodes (0);
-
-    ipv6.SetBase (Ipv6Address ("2001:2::"), Ipv6Prefix (64));
-    Ipv6InterfaceContainer iic2 = ipv6.Assign (NetDeviceContainer (devices.Get (1)));
-    iic2.SetForwarding (0, true);
-    deviceInterfaces.Add (iic2);
-    //iic2.SetForwarding (1, true);
-
-    ipv6.SetBase (Ipv6Address ("2001:3::"), Ipv6Prefix (64));
-    Ipv6InterfaceContainer iic3 = ipv6.Assign (NetDeviceContainer (devices.Get (2)));
-    iic3.SetForwarding (0, true);
-    deviceInterfaces.Add (iic3);
-    //iic3.SetForwarding (1, true);
-
-    ipv6.SetBase (Ipv6Address ("2001:4::"), Ipv6Prefix (64));
-    Ipv6InterfaceContainer iic4 = ipv6.Assign (NetDeviceContainer (devices.Get (3)));
-    iic4.SetForwarding (0, true);
-    deviceInterfaces.Add (iic4);
-    //iic4.SetForwarding (1, true);
-
-    ipv6.SetBase (Ipv6Address ("2001:5::"), Ipv6Prefix (64));
-    Ipv6InterfaceContainer iic5 = ipv6.Assign (NetDeviceContainer (devices.Get (4)));
-    iic5.SetForwarding (0, true);
-    deviceInterfaces.Add (iic5);
-    //iic5.SetForwarding (1, true);
-    //iic5.SetDefaultRouteInAllNodes (0);
   }
   else if (routingProtocol == "aodv")
   {
@@ -257,10 +220,6 @@ int main (int argc, char *argv[])
 
 
 
-
-  //std::cout << "" << deviceInterfaces << std::endl;
-
-
   for (int i = 0; i< numberOfNodes; ++i)
   {
     deviceInterfaces.SetForwarding (i, true);
@@ -268,13 +227,14 @@ int main (int argc, char *argv[])
     {
       AsciiTraceHelper asciiTraceHelper;
       Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-        "RPLEXAMPLE_updatedPrefParent_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "_silenceNodeTime_" + std::to_string(silenceNodeTimeSeconds) + "_turnOnNodeTime_" + std::to_string(turnOnNodeTimeSeconds) + "" + ".txt");
+        "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
       GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
 
       Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
-          "RPLEXAMPLE_routeAdded_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "_silenceNodeTime_" + std::to_string(silenceNodeTimeSeconds) + "_turnOnNodeTime_" + std::to_string(turnOnNodeTimeSeconds) + "" + ".txt");
+        "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
       GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
-    }else if (routingProtocol == "ripng")
+    }
+    /*else if (routingProtocol == "ripng")
     {
       RipNgHelper routingHelper;
       Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> (&std::cout);
@@ -282,10 +242,9 @@ int main (int argc, char *argv[])
 
       AsciiTraceHelper asciiTraceHelper;
       Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
-          "RPLEXAMPLE_routeAdded_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "_silenceNodeTime_" + std::to_string(silenceNodeTimeSeconds) + "_turnOnNodeTime_" + std::to_string(turnOnNodeTimeSeconds) + "" + ".txt");
+          "RPLEXAMPLE_routeAdded_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_silenceNodeTime_" + std::to_string(silenceNodeTimeSeconds) + "_turnOnNodeTime_" + std::to_string(turnOnNodeTimeSeconds) + paramString + ".txt");
       GetRipNg(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RipNgRouteAddedTraceSink, routeAddedStream));
-
-    }
+    }*/
   }
   
 
@@ -308,14 +267,14 @@ int main (int argc, char *argv[])
     udpClientHelper.SetAttribute ("MaxPackets", UintegerValue (maxPackets));
     ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
 
-    //udpClientHelper.SetFill(apps.Get(0), std::to_string(Simulator::Now().GetSeconds()) );
-
     apps.Start (applicationStart);
     apps.Stop (simulationTime);
 
     AsciiTraceHelper asciiTraceHelper;
-    Ptr<OutputStreamWrapper> updServerWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_routingProtocol_" + routingProtocol + "_node_" + std::to_string(n) + "_run_" + std::to_string(run) + "_silenceNodeTime_" + std::to_string(silenceNodeTimeSeconds) + "_turnOnNodeTime_" + std::to_string(turnOnNodeTimeSeconds) + "" + ".txt");
-    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updServerWrapper));
+    Ptr<OutputStreamWrapper> updServerRxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updServerRxWrapper));
+    Ptr<OutputStreamWrapper> updClientTxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientSend_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("TxWithAddresses", MakeBoundCallback (&UdpTxTraceWithAddressesSink, updClientTxWrapper));
   }
 
   for (int n : {0})
@@ -326,12 +285,9 @@ int main (int argc, char *argv[])
     apps.Stop (simulationTime);
 
     AsciiTraceHelper asciiTraceHelper;
-    Ptr<OutputStreamWrapper> updServerWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpServerReceive_routingProtocol_" + routingProtocol + "_node_" + std::to_string(n) + "_run_" + std::to_string(run) + "_silenceNodeTime_" + std::to_string(silenceNodeTimeSeconds) + "_turnOnNodeTime_" + std::to_string(turnOnNodeTimeSeconds) + "" + ".txt");
+    Ptr<OutputStreamWrapper> updServerWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpServerReceive_node_" + std::to_string(n) + paramString + ".txt");
     apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updServerWrapper));
   }
-
-  //UdpTraceClientHelper clientTrace = UdpTraceClientHelper ();
-  //clientTrace.Install(nodes);
 
   Simulator::Schedule(silenceNodeTime, &SilenceNode, nodes.Get (1), 1);
   Simulator::Schedule(turnOnNodeTime, &TurnOnNode, nodes.Get (1), 1, Ipv6Address("2001:2::ff:fe00:2"));
