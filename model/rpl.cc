@@ -283,6 +283,21 @@ TypeId RoutingProtocol::GetTypeId (void)
                 UintegerValue (1),
                 MakeUintegerAccessor (&RoutingProtocol::m_maxDaoParents),
                 MakeUintegerChecker<uint8_t>())
+  .AddAttribute ("DIOIntervalDoublings",
+                "8-bit unsigned integer used to configure Imax of the DIO Trickle timer",
+                UintegerValue (DEFAULT_DIO_INTERVAL_DOUBLINGS),
+                MakeUintegerAccessor (&RoutingProtocol::m_dioIntervalDoublings),
+                MakeUintegerChecker<uint8_t>())
+  .AddAttribute ("DIOIntervalMin",
+                "8-bit unsigned integer used to configure Imin of the DIO Trickle timer",
+                UintegerValue (DEFAULT_DIO_INTERVAL_MIN),
+                MakeUintegerAccessor (&RoutingProtocol::m_dioIntervalMin),
+                MakeUintegerChecker<uint8_t>())
+  .AddAttribute ("DIORedundancyConstant",
+                "8-bit unsigned integer used to configure k of the DIO Trickle timer",
+                UintegerValue (DEFAULT_DIO_REDUNDANCY_CONSTANT),
+                MakeUintegerAccessor (&RoutingProtocol::m_dioRedundancyConstant),
+                MakeUintegerChecker<uint8_t>())
   .AddTraceSource ("UpdatedPrefParent",
               "preferered parent updates to trace",
               MakeTraceSourceAccessor (&RoutingProtocol::m_updatedPrefParentTrace),
@@ -1239,7 +1254,7 @@ void RoutingProtocol::PoisonChildren ()
   NS_ASSERT_MSG(m_rank == INFINITE_RANK, "rank of node is not INFINITE");
   NS_LOG_LOGIC ("poisoning children");
   Ptr<Packet> packet = Create<Packet> ();
-  DioHeader dioHeader (m_instanceId, m_dodagVersionNumber.GetValue (), m_rank, m_isGrounded, m_mop, m_dodagPreference, m_dtsn, 0, 0, m_dodagId);
+  DioHeader dioHeader (m_instanceId, m_dodagVersionNumber.GetValue (), INFINITE_RANK, m_isGrounded, m_mop, m_dodagPreference, m_dtsn, 0, 0, m_dodagId);
   RplIcmpv6Header rplIcmpv6Header (TYPE_DIO);
 
   packet->AddHeader (dioHeader);
