@@ -69,6 +69,8 @@ int main (int argc, char *argv[])
 
   std::string routingProtocol ("rpl");
   int run = 1;
+  int appSetup = 0;
+  int networkSetup = 0;
   /// network
   /// nodes used in the example
   NodeContainer nodes;
@@ -96,11 +98,13 @@ int main (int argc, char *argv[])
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
 
+  std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
+
   Time applicationStart = Seconds (applicationStartSeconds);
   Time simulationTime = Seconds (simulationTimeSeconds);
   Time silenceNodeTime = Seconds (silenceNodeTimeSeconds);
 
-  //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
+  Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (1));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (1));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
@@ -171,11 +175,11 @@ int main (int argc, char *argv[])
     AsciiTraceHelper asciiTraceHelper;
 
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-          "RPLEXAMPLE_updatedPrefParent_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "_numberOfNodes_" + std::to_string(numberOfNodes) + "" + ".txt");
+          "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
 
     Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
-          "RPLEXAMPLE_routeAdded_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "_numberOfNodes_" + std::to_string(numberOfNodes) + "" + ".txt");
+          "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
   }
   
@@ -207,6 +211,13 @@ int main (int argc, char *argv[])
 
     apps.Start (applicationStart);
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updClientRxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updClientRxWrapper));
+
+    Ptr<OutputStreamWrapper> updClientTxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientSend_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("TxWithAddresses", MakeBoundCallback (&UdpTxTraceWithAddressesSink, updClientTxWrapper));
   }
 
   for (int n : {numberOfNodes-1})

@@ -94,7 +94,8 @@ int main (int argc, char *argv[])
   NetDeviceContainer devices;
   /// interfaces used in the example
   Ipv6InterfaceContainer interfaces;
-  int setup = 0;
+  int appSetup = 0;
+  int networkSetup = 0;
   
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
@@ -104,11 +105,12 @@ int main (int argc, char *argv[])
   cmd.AddValue("simulationTime", "the simulation time in seconds", simulationTimeSeconds);
   cmd.AddValue("applicationStart", "the application start time in seconds", applicationStartSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
-  cmd.AddValue("setup", "if traffix shall be sent fron one leaf to another one (5 to 7)", setup);
+  cmd.AddValue("appSetup", "if traffix shall be sent fron one leaf to another one (5 to 7)", appSetup);
 
   cmd.Parse (argc,argv);
 
-  std::string paramString = "_routingProtocol_" + routingProtocol + "_run_" + std::to_string(run) + "_setup_" + std::to_string(setup) + "_trafficInterval_" + std::to_string(trafficInterval);
+  //std::string paramString = "_routingProtocol_" + routingProtocol + "_run_" + std::to_string(run) + "_appSetup_" + std::to_string(appSetup) + "_trafficInterval_" + std::to_string(trafficInterval);
+  std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
 
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
@@ -293,26 +295,26 @@ int main (int argc, char *argv[])
   // Add all leaf nodes
   std::vector<int> clients;
   std::vector<int> servers;
-  if (setup == 0)
+  if (appSetup == 0)
   {
     clients = {4, 5, 6, 7};
     servers = {0};
-  }else if (setup == 1)
+  }else if (appSetup == 1)
   {
     clients = {5};
     servers = {7};
-  }else if (setup == 2)
+  }else if (appSetup == 2)
   {
     clients = {7};
     servers = {0};
   }else
   {
-    NS_ABORT_MSG ("Unkown setup number " + std::to_string(setup) + " given!");
+    NS_ABORT_MSG ("Unkown appSetup number " + std::to_string(appSetup) + " given!");
   }
 
   for (int n : clients)
   {
-    if (setup == 1)
+    if (appSetup == 1)
     {
       udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (7,1)));
     }else

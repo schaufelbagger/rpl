@@ -27,6 +27,7 @@ Ptr<MobilityModel> GetMobilityModel(Ptr <Node> node);
 void SilenceNode (Ptr<Node> node, int32_t interface);
 void TurnOnNode (Ptr<Node> node, int32_t interface, Ipv6Address address);
 int GetNextHighestSquareEdgeLength(int number);
+std::string get_param_string (std::string routingProtocol, int run, int numberOfNodes, double trafficInterval, double applicationStart, double simulationTime, int networkSetup, int appSetup);
 
 // Traces
 void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode);

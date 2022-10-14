@@ -54,6 +54,22 @@ Ptr<MobilityModel> GetMobilityModel(Ptr <Node> node){
   }
 }
 
+std::string get_param_string (std::string routingProtocol, int run, int numberOfNodes, double trafficInterval, double applicationStart, double simulationTime, int networkSetup=0, int appSetup=0)
+{
+  //std::string paramString = "_routingProtocol_" + routingProtocol + "_run_" + std::to_string(run) + "_appSetup_" + std::to_string(appSetup) + "_trafficInterval_" + std::to_string(trafficInterval);
+  std::ostringstream oss;
+  oss << "_routingProtocol_" << routingProtocol 
+      << "_run_" << run
+      << "_numberOfNodes_" << numberOfNodes
+      << "_trafficInterval_" << trafficInterval
+      << "_networkSetup_" << networkSetup
+      << "_appSetup_" << appSetup
+      << "_applicationStart_" << applicationStart
+      << "_simulationTime_" << simulationTime
+  ;
+  std::string paramString = oss.str();
+  return paramString;
+}
 
 void SilenceNode (Ptr<Node> node, int32_t interface)
 {

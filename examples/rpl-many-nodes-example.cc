@@ -73,8 +73,8 @@ int main (int argc, char *argv[])
   // distance of nodes
   int xStep = 50;
   int yStep = 50;
-  Time applicationStart = Seconds (10);
-  Time simulationTime = Seconds (15);
+  double applicationStartSeconds = 100;
+  double simulationTimeSeconds = 115;
 #ifdef USE_APPLICATION
   double trafficInterval = 10;
   uint32_t packetSize = 10;
@@ -82,7 +82,11 @@ int main (int argc, char *argv[])
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
-
+  int run = 1;
+  std::string routingProtocol ("rpl");
+  std::string rplConfigFilename ("rplConfig.csv");
+  int appSetup = 0;
+  int networkSetup = 0;
   /// network
   /// nodes used in the example
   NodeContainer nodes;
@@ -93,9 +97,22 @@ int main (int argc, char *argv[])
 
   CommandLine cmd (__FILE__);
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
+  cmd.AddValue("routingProtocol", "the routing protocol used", routingProtocol);
+  cmd.AddValue("run", "the run number", run);
+  cmd.AddValue("simulationTime", "the simulation time", simulationTimeSeconds);
+  cmd.AddValue("applicationStart", "the application start time", applicationStartSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
+  cmd.AddValue("numberOfNodes", "number of nodes", numberOfNodes);
 
   cmd.Parse (argc,argv);
+
+  RngSeedManager::SetSeed (1);
+  RngSeedManager::SetRun (run);
+
+  std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
+
+  Time applicationStart = Seconds (applicationStartSeconds);
+  Time simulationTime = Seconds (simulationTimeSeconds);
 
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
@@ -242,8 +259,12 @@ int main (int argc, char *argv[])
   {
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-          "stateChanges_node_" + std::to_string(n) + "_" + "updatedPrefParent" + ".txt");
+          "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(n) + paramString + ".txt");
     GetRpl(nodes.Get(n))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+
+    Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_routeAdded_node_" + std::to_string(n) + paramString + ".txt");
+    GetRpl(nodes.Get(n))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
   }
   
 
@@ -268,6 +289,13 @@ int main (int argc, char *argv[])
 
     apps.Start (applicationStart);
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updClientRxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updClientRxWrapper));
+
+    Ptr<OutputStreamWrapper> updClientTxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientSend_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("TxWithAddresses", MakeBoundCallback (&UdpTxTraceWithAddressesSink, updClientTxWrapper));
   }
 
   for (int n : {rootNode->GetId ()})

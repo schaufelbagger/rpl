@@ -95,6 +95,8 @@ int main (int argc, char *argv[])
   int run = 1;
   std::string routingProtocol ("rpl");
   std::string rplConfigFilename ("rplConfig.csv");
+  int appSetup = 0;
+  int networkSetup = 0;
   /// network
   int numberOfNodes = numberOfGridNodes + numberOfMovingNodes;
   /// nodes used in the example
@@ -122,8 +124,10 @@ int main (int argc, char *argv[])
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
 
-  Time applicationStart = Seconds (simulationTimeSeconds);
-  Time simulationTime = Seconds (applicationStartSeconds);
+  std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
+
+  Time applicationStart = Seconds (applicationStartSeconds);
+  Time simulationTime = Seconds (simulationTimeSeconds);
 
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (0));
@@ -268,8 +272,12 @@ int main (int argc, char *argv[])
     deviceInterfaces.SetForwarding (i, true);
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-          "stateChanges_node_" + std::to_string(i) + "_" + "updatedPrefParent" + ".txt");
+          "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+
+    Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
+    GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
   }
 
   //for (int i : {movingNode->GetId ()})
@@ -281,7 +289,7 @@ int main (int argc, char *argv[])
     //std::cout << i << std::endl;
     //MobilityHelper::EnableAscii (asciiTraceHelper.CreateFileStream ("stateChanges_node_" + std::to_string(i) + "_" + "mobility-trace-example.txt"), i);
     std::cout << "moving node id: " << std::to_string(i) << std::endl;
-    Ptr<OutputStreamWrapper> courseChangeWrapper = asciiTraceHelper.CreateFileStream ( "stateChanges_node_" + std::to_string(i) + "_" + "CourseChange" + ".txt");
+    Ptr<OutputStreamWrapper> courseChangeWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_courseChange_node_" + std::to_string(i) + paramString + ".txt");
     GetMobilityModel (nodes.Get (i))->TraceConnectWithoutContext("CourseChange", MakeBoundCallback (&CourseChangeTraceSink, courseChangeWrapper));
     GetMobilityModel (nodes.Get (i))->TraceConnectWithoutContext ("CourseChange", MakeCallback(&TestTrace));
     //std::cout << GetMobilityModel (nodes.Get (i))->GetPosition () << std::endl;
@@ -313,6 +321,13 @@ int main (int argc, char *argv[])
 
     apps.Start (applicationStart);
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updClientRxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updClientRxWrapper));
+
+    Ptr<OutputStreamWrapper> updClientTxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientSend_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("TxWithAddresses", MakeBoundCallback (&UdpTxTraceWithAddressesSink, updClientTxWrapper));
   }
 
   for (int n : {rootNode->GetId ()})
