@@ -69,7 +69,7 @@ int main (int argc, char *argv[])
   double simulationTimeSeconds = 500;
 #ifdef USE_APPLICATION
   double trafficInterval = 1.0;
-  int maxPackets = 2000;
+  int maxPackets = 10000;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
@@ -77,11 +77,14 @@ int main (int argc, char *argv[])
   bool energyModelEnabled = true;
   double txPower = 0;
   double initialNodeEnergy = 10;
-  double txCurrentA = 0.0101;
+  double txCurrentA = 0.0101; // apperently not used, does not change jack shit
+
 
   int run = 1;
   std::string routingProtocol ("rpl");
   std::string rplConfigFilename ("rplConfig.csv");
+  int appSetup = 0;
+  int networkSetup = 0;
   /// network
   /// nodes used in the example
   NodeContainer nodes;
@@ -98,6 +101,7 @@ int main (int argc, char *argv[])
   cmd.AddValue("simulationTime", "the simulation time in seconds", simulationTimeSeconds);
   cmd.AddValue("applicationStart", "the application start time in seconds", applicationStartSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
+  cmd.AddValue("networkSetup", "how the trickle timer is set;0=normal, 1=dioIntervalMax=10s, 2=dioIntervalMax=20s", networkSetup);
   cmd.AddValue ("txPower", "Sending Power of the normal nodes.",txPower);
   cmd.AddValue ("energyModelEnabled","Enables or disables the assignment of an energy model to the nodes", energyModelEnabled);
   cmd.AddValue ("initialNodeEnergy","The available energy contained in the nodes battery", initialNodeEnergy);
@@ -106,6 +110,8 @@ int main (int argc, char *argv[])
 
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
+
+  
 
   Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (1));
@@ -187,30 +193,40 @@ int main (int argc, char *argv[])
   nodes.Create(numberOfNodes);
   mobility.Install (nodes);
 
+
+  std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
+  
   // ---------------- Create Devices -------------------------------
 
 
   LrWpanHelper lrWpanHelper;
   // Add and install the LrWpanNetDevice for each node
   NetDeviceContainer lrwpanDevices = lrWpanHelper.Install(nodes);
-  NetDeviceContainer energyDevices;
-  NodeContainer energyNodes;
+  NetDeviceContainer energyDevices = NetDeviceContainer ();
+  energyDevices.Add (lrwpanDevices.Get (4));
+  energyDevices.Add (lrwpanDevices.Get (5));
+  energyDevices.Add (lrwpanDevices.Get (6));
+  energyDevices.Add (lrwpanDevices.Get (7));
+  energyDevices.Add (lrwpanDevices.Get (8));
+  NodeContainer energyNodes = NodeContainer (nodes.Get (4), nodes.Get (5), nodes.Get (6), nodes.Get (7), nodes.Get (8) );
+  int numberOfEnergyNodes = 5;
 
   EnergySourceContainer sources;
   if(energyModelEnabled)
   {
-    for (int i = 0; i< numberOfNodes; ++i)
+
+    for (int i = 0; i< numberOfEnergyNodes; ++i)
     {
-      Ptr<LrWpanPhy> phy = lrwpanDevices.Get(i)->GetObject<LrWpanNetDevice>()->GetPhy();
+      Ptr<LrWpanPhy> phy = energyDevices.Get(i)->GetObject<LrWpanNetDevice>()->GetPhy();
       phy->SetAttribute("TxPower", DoubleValue(txPower));
     }
     BasicEnergySourceHelper basicSourceHelper;
     basicSourceHelper.Set ("BasicEnergySourceInitialEnergyJ", DoubleValue (initialNodeEnergy));
     basicSourceHelper.Set ("PeriodicEnergyUpdateInterval", TimeValue (Simulator::GetMaximumSimulationTime())); // do not reload the battery
-    sources = basicSourceHelper.Install(nodes);
+    sources = basicSourceHelper.Install(energyNodes);
     LrWpanRadioEnergyModelHelper radioEnergyHelper;
     radioEnergyHelper.Set ("TxSendCurrentA", DoubleValue (txCurrentA));
-    DeviceEnergyModelContainer deviceModels = radioEnergyHelper.Install (lrwpanDevices, sources);
+    DeviceEnergyModelContainer deviceModels = radioEnergyHelper.Install (energyDevices, sources);
     //statHelper.Install(nodes.Get(it->first), DynamicCast<LrWpanNetDevice>(devContainer.Get(it->first)), energyModelEnabled, simEndTime);
   }
 
@@ -230,6 +246,20 @@ int main (int argc, char *argv[])
   // install TCP/IP & RPL
   RplHelper rpl;
   // you can configure RPL attributes here using rpl.Set(name, value)
+  //DIOIntervalMax = 10s
+  if (networkSetup == 1)
+  {
+    // DIO Intervall Max = 2^DIOIntervalMin * 2^DIOIntervalDoublings
+    // DIO Intervall Max = 8.192s
+    rpl.Set ("DIOIntervalDoublings", UintegerValue (10));
+    rpl.Set ("DIOIntervalMin", UintegerValue (3));
+  }else if (networkSetup == 2)
+  {
+    // DIO Intervall Max = 16.384
+    rpl.Set ("DIOIntervalDoublings", UintegerValue (11));
+    rpl.Set ("DIOIntervalMin", UintegerValue (3));
+  }
+  
 
   InternetStackHelper stack;
   stack.SetIpv4StackInstall(false);
@@ -251,8 +281,12 @@ int main (int argc, char *argv[])
     deviceInterfaces.SetForwarding (i, true);
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
-          "RPLEXAMPLE_updatedPrefParent_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
+          "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+
+    Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
+    GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
   }
 
   if(energyModelEnabled)
@@ -261,9 +295,9 @@ int main (int argc, char *argv[])
     // energy source
     for (int n : {4,5,6,7,8})
     {
-      Ptr<BasicEnergySource> basicSourcePtr = DynamicCast<BasicEnergySource> (sources.Get (n));
+      Ptr<BasicEnergySource> basicSourcePtr = DynamicCast<BasicEnergySource> (sources.Get (n-4));
       AsciiTraceHelper asciiTraceHelper;
-      Ptr<OutputStreamWrapper> remainingEnergy = asciiTraceHelper.CreateFileStream ("RPLEXAMPLE_remainingEnergy_node_" + std::to_string(n) + "_" + "" + ".txt");
+      Ptr<OutputStreamWrapper> remainingEnergy = asciiTraceHelper.CreateFileStream ("RPLEXAMPLE_remainingEnergy_node_" + std::to_string(n) + paramString + "" + ".txt");
       basicSourcePtr->TraceConnectWithoutContext ("RemainingEnergy", MakeBoundCallback (&RemainingEnergy, remainingEnergy));
     }
     // device energy model
@@ -293,6 +327,13 @@ int main (int argc, char *argv[])
 
     apps.Start (applicationStart);
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updClientRxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updClientRxWrapper));
+
+    Ptr<OutputStreamWrapper> updClientTxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientSend_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("TxWithAddresses", MakeBoundCallback (&UdpTxTraceWithAddressesSink, updClientTxWrapper));
   }
 
   for (int n : {0})
