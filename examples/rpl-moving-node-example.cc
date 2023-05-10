@@ -53,6 +53,10 @@
 #define USE_APPLICATION
 
 
+#define X_END_POSITION 0
+#define Y_END_POSITION 0
+#define Z_END_POSITION 0
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("movingNodeExample");
@@ -60,11 +64,24 @@ NS_LOG_COMPONENT_DEFINE ("movingNodeExample");
 
 void TestTrace ( Ptr<ns3::MobilityModel const> newValue)
 {
+  ns3::Vector currentPosition = newValue->GetPosition ();
+  ns3::Vector currentVelocity = newValue->GetVelocity ();
   std::cout << Simulator::Now().GetSeconds() 
-  << ": Position " << newValue->GetPosition () 
-  << ", Velocity " << newValue->GetVelocity ()
+  << ": Position " << currentPosition 
+  << ", Velocity " << currentVelocity
   << std::endl;
+
+  ns3::Vector endPosition = Vector3D (X_END_POSITION, Y_END_POSITION, Z_END_POSITION);
+  double epsilon = 0.5;
+  bool positionEqual = (fabs(currentPosition.x-endPosition.x)<epsilon) && (fabs(currentPosition.y-endPosition.y)<epsilon) && (fabs(currentPosition.z-endPosition.z)<epsilon);
+  bool velocityNotZero = currentVelocity.x != 0 || currentVelocity.y != 0 || currentVelocity.z != 0;
+  if (positionEqual && velocityNotZero)
+  {
+    Simulator::Stop ();
+  }
+  
 }
+
 
 
 
@@ -83,10 +100,10 @@ int main (int argc, char *argv[])
   int xStep = 100;//70
   int yStep = 100;
   double applicationStartSeconds = 10;
-  double simulationTimeSeconds = 1000;
+  double simulationTimeSeconds = 2000;
 #ifdef USE_APPLICATION
   double trafficInterval = 1.0;
-  int maxPackets = 2000;
+  int maxPackets = 10000;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
@@ -99,6 +116,10 @@ int main (int argc, char *argv[])
   int networkSetup = 0;
   /// network
   int numberOfNodes = numberOfGridNodes + numberOfMovingNodes;
+  double pauseMean = 50;
+  double speedMean = 2;
+  uint8_t dioIntervalDoublings = DEFAULT_DIO_INTERVAL_DOUBLINGS;
+  uint8_t dioIntervalMin = DEFAULT_DIO_INTERVAL_MIN;
   /// nodes used in the example
   NodeContainer nodes;
   NodeContainer gridNodes;
@@ -119,12 +140,17 @@ int main (int argc, char *argv[])
   cmd.AddValue("numberOfNodes", "number of nodes", numberOfNodes);
   cmd.AddValue("xStep", "the distance between nodes in x direction", xStep);
   cmd.AddValue("yStep", "the distance between nodes in y direction", yStep);
+  cmd.AddValue("pause", "the time in seconds, how long the moving node will pause at each destination", pauseMean);
+  cmd.AddValue("speed", "the speed of the moving node in m/s", speedMean);
+  cmd.AddValue("dioIntervalDoublings", "the RPL DIO Trickle timer Interval Doublings parameter", dioIntervalDoublings);
+  cmd.AddValue("dioIntervalMin", "the RPL DIO Trickle timer Interval Min parameter", dioIntervalMin);
   cmd.Parse (argc,argv);
 
   RngSeedManager::SetSeed (1);
   RngSeedManager::SetRun (run);
 
   std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
+  paramString = "_pause_" + std::to_string(pauseMean) + "_speed_" + std::to_string(speedMean) + "_DIDoublings_" + std::to_string(dioIntervalDoublings) + "_DIMin_" + std::to_string(dioIntervalMin) + paramString;
 
   Time applicationStart = Seconds (applicationStartSeconds);
   Time simulationTime = Seconds (simulationTimeSeconds);
@@ -186,7 +212,7 @@ int main (int argc, char *argv[])
   //Ptr<Node> movingNode = nodes.Get (0);
   int zHeight = 0;
   // start in the middle of the grid
-  double xPosition = static_cast<double>(xStep*gridWidth - xStep)/2 + 10;
+  double xPosition = static_cast<double>(xStep*gridWidth - xStep)/2;
   double yPosition = static_cast<double>(yStep*gridWidth - yStep)/2;
 
   Ptr<ListPositionAllocator> beginPositionAlloc = CreateObject<ListPositionAllocator> ();
@@ -196,7 +222,11 @@ int main (int argc, char *argv[])
 
 
   Ptr<ListPositionAllocator> waypointPositionAlloc = CreateObject<ListPositionAllocator> ();
-  xPosition = gridWidth * xStep;
+// add begin waypoint to wait longer at the beginning
+  waypointPositionAlloc->Add(Vector3D (xPosition-0.1,yPosition,zHeight));
+  waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
+  
+  xPosition = gridWidth * xStep - xStep;
   waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
   yPosition = 0;
   waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
@@ -204,16 +234,16 @@ int main (int argc, char *argv[])
   xPosition = xPosition + 200;
   waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
   xPosition = 0;
-  waypointPositionAlloc->Add(Vector3D (xPosition,yPosition,zHeight));
+  waypointPositionAlloc->Add(Vector3D (X_END_POSITION,Y_END_POSITION,Z_END_POSITION));
 
 
-  double pauseMean = 50;
+  //double pauseMean = 50;
   double pauseVariance = 1/3;
   Ptr<NormalRandomVariable> pause = CreateObject<NormalRandomVariable> ();
   pause->SetAttribute ("Mean", DoubleValue (pauseMean));
   pause->SetAttribute ("Variance", DoubleValue (pauseVariance));
 
-  double speedMean = 2.0;
+  //double speedMean = 2.0;
   double speedVariance = 0.1;
   Ptr<NormalRandomVariable> speed = CreateObject<NormalRandomVariable> ();
   speed->SetAttribute ("Mean", DoubleValue (speedMean));
@@ -252,6 +282,8 @@ int main (int argc, char *argv[])
   // install TCP/IP & RPL
   RplHelper rpl;
   // you can configure RPL attributes here using rpl.Set(name, value)
+  rpl.Set ("DIOIntervalDoublings", UintegerValue (dioIntervalDoublings));
+  rpl.Set ("DIOIntervalMin", UintegerValue (dioIntervalMin));
 
   InternetStackHelper stack;
   stack.SetIpv4StackInstall(false);
@@ -274,6 +306,10 @@ int main (int argc, char *argv[])
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+
+    //Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
+    //      "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
+    //GetRpl(nodes.Get(i))->TraceConnectWithoutContext("DetachFromDodag", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
 
     Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
@@ -338,8 +374,10 @@ int main (int argc, char *argv[])
     apps.Stop (simulationTime);
   }
 
+  //Simulator::Schedule(Seconds(1), &RplConnectionUp);
 
 
+  // This is only a safety stop, simulation will end when the end position has been reached and the node wants to move again
   Simulator::Stop (simulationTime);
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
