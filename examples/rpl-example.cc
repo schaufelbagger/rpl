@@ -39,6 +39,7 @@
 //#include "ns3/statistics-helper.h"
 
 #include "ns3/rpl-state.h"
+#include "rpl-example-helper.h"
 
 //#define USE_WIFI
 #define USE_SIXLOWPAN
@@ -46,7 +47,7 @@
 
 using namespace ns3;
 
-Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
+/*Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node){
   Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
   NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
   Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
@@ -77,7 +78,7 @@ void RemainingEnergy (Ptr<OutputStreamWrapper> stream, double oldValue, double r
   *stream->GetStream () << std::endl;     
   //NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "s Current remaining energy = " << remainingEnergy << "J");
 }
-
+*/
 void TotalEnergy (double oldValue, double totalEnergy)
 {
   NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "s Total energy consumed by radio = " << totalEnergy << "J");

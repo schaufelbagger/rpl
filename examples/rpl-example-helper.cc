@@ -54,7 +54,7 @@ Ptr<MobilityModel> GetMobilityModel(Ptr <Node> node){
   }
 }
 
-std::string get_param_string (std::string routingProtocol, int run, int numberOfNodes, double trafficInterval, double applicationStart, double simulationTime, int networkSetup=0, int appSetup=0)
+std::string get_param_string (std::string routingProtocol, int run, int numberOfNodes, double trafficInterval, double applicationStart, double simulationTime, int networkSetup, int appSetup)
 {
   //std::string paramString = "_routingProtocol_" + routingProtocol + "_run_" + std::to_string(run) + "_appSetup_" + std::to_string(appSetup) + "_trafficInterval_" + std::to_string(trafficInterval);
   std::ostringstream oss;
@@ -190,9 +190,10 @@ void CourseChangeTraceSink (Ptr<OutputStreamWrapper> stream, Ptr<const MobilityM
   Vector vel = mobility->GetVelocity (); // Get velocity
  
   // Prints position and velocities
-  *stream->GetStream () << Simulator::Now ().GetSeconds() << " POS: x=" << pos.x << ", y=" << pos.y
-      << ", z=" << pos.z << "; VEL:" << vel.x << ", y=" << vel.y
-      << ", z=" << vel.z << std::endl;
+  *stream->GetStream () << Simulator::Now ().GetSeconds() 
+      << ", posX=" << pos.x << ", posY=" << pos.y
+      << ", posZ=" << pos.z << "; velX=" << vel.x << ", velY=" << vel.y
+      << ", velZ=" << vel.z << std::endl;
 }
 
 void RemainingEnergy (Ptr<OutputStreamWrapper> stream, double oldValue, double remainingEnergy)
