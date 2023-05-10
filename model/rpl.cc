@@ -302,6 +302,10 @@ TypeId RoutingProtocol::GetTypeId (void)
               "preferered parent updates to trace",
               MakeTraceSourceAccessor (&RoutingProtocol::m_updatedPrefParentTrace),
               "ns3::rpl::RoutingProtocol::updatedPrefParentCallback")
+  .AddTraceSource ("DetachFromDodag",
+              "trace when DODAG detaches",
+              MakeTraceSourceAccessor (&RoutingProtocol::m_detachFromDodagTrace),
+              "ns3::rpl::RoutingProtocol::detachFromDodagCallback")
   .AddTraceSource ("routeAdded",
               "every route that is added to the routing table to trace\n callback passed to routing table",
               MakeTraceSourceAccessor (&RoutingProtocol::m_routeAddedTrace),
@@ -727,7 +731,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   packet->RemoveHeader (dioHeader);
   payloadLength = ipv6Header.GetPayloadLength () - 4 - dioHeader.GetSerializedSize ();
 
-  if (!m_receivedDio)
+  if (!m_receivedDio && dioHeader.GetRank () != INFINITE_RANK)
   {
     m_receivedDio = true;
     if (m_disMessageTimer.IsRunning ())
@@ -1239,6 +1243,14 @@ void RoutingProtocol::DetachFromDodag ()
   m_receivedDio = false;
   m_daoParents = std::set<RplNode> ();
   NS_LOG_LOGIC ("Detached from DODAG");
+  m_detachFromDodagTrace (m_preferredParent);
+
+  // send DIS messages to find a new root or become a new root itself
+  if (m_disMop == DIS_MOP_SEND)
+  {
+    m_disMessageTimer.SetDelay (m_disMessageTime);
+    m_disMessageTimer.Schedule ();
+  }
 }
 
 void RoutingProtocol::ClearDownwardRoutes ()
