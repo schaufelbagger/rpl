@@ -69,7 +69,7 @@ int main (int argc, char *argv[])
 
   // parameters
   bool verbose = true;
-  int numberOfNodes = 500;
+  int numberOfNodes = 10;
   // distance of nodes
   int xStep = 50;
   int yStep = 50;
@@ -85,7 +85,7 @@ int main (int argc, char *argv[])
   int run = 1;
   std::string routingProtocol ("rpl");
   std::string rplConfigFilename ("rplConfig.csv");
-  int appSetup = 0;
+  int appSetup = 1;
   int networkSetup = 0;
   /// network
   /// nodes used in the example
@@ -103,6 +103,7 @@ int main (int argc, char *argv[])
   cmd.AddValue("applicationStart", "the application start time", applicationStartSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
   cmd.AddValue("numberOfNodes", "number of nodes", numberOfNodes);
+  cmd.AddValue("appSetup", "sets the setup for client and server", appSetup);
 
   cmd.Parse (argc,argv);
 
@@ -129,9 +130,11 @@ int main (int argc, char *argv[])
   nodes.Create(numberOfNodes);
   MobilityHelper mobility;
   int gridWidth = GetNextHighestSquareEdgeLength (numberOfNodes);
+  Ptr<Node> rootNode = nodes.Get (0);
   
-#ifdef USE_GRID_NODE_POSITION
-  
+//#ifdef USE_GRID_NODE_POSITION
+if (appSetup == 555)
+{
   NS_ABORT_MSG_IF (gridWidth == 0,"invalid grid size");
   int middleNodeNumber;
   if (gridWidth % 2 == 0)
@@ -151,9 +154,12 @@ int main (int argc, char *argv[])
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 
   // get center node as root node
-  Ptr<Node> rootNode = nodes.Get (middleNodeNumber);
+  rootNode = nodes.Get (middleNodeNumber);
   mobility.Install (nodes);
-#elif defined (USE_UNIFORM_RANDOM_NODE_POSITION)
+}
+//#elif defined (USE_UNIFORM_RANDOM_NODE_POSITION)
+else if (appSetup >= 1 && appSetup <=3)
+{
   // uniform random node placement
   Ptr<PositionAllocator> positionAlloc = CreateObject<RandomBoxPositionAllocator> ();
   Ptr<UniformRandomVariable> xVal = CreateObject<UniformRandomVariable> ();
@@ -173,8 +179,10 @@ int main (int argc, char *argv[])
 
   
   mobility.Install (nodes);
-  Ptr<Node> rootNode = nodes.Get (1);
-#elif defined (USE_NORMAL_RANDOM_NODE_POSITION)
+}
+//#elif defined (USE_NORMAL_RANDOM_NODE_POSITION)
+else if (appSetup >= 4 && appSetup <=6)
+{
   // normal random node placement
   // https://www.stapplet.com/normal.html
   int wantedMaxHops = 5;
@@ -204,10 +212,12 @@ int main (int argc, char *argv[])
   mobility.SetPositionAllocator (positionAlloc);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (nodes.Get (1));*/
-  Ptr<Node> rootNode = nodes.Get (1);
-#else
+//#else
+}else
+{
   NS_ABORT_MSG ("No position model given");
-#endif
+}
+//#endif
 
 
 
@@ -258,14 +268,26 @@ int main (int argc, char *argv[])
   for (  int n : {rootNode->GetId ()})
   {
     AsciiTraceHelper asciiTraceHelper;
-    Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
+    /*Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(n) + paramString + ".txt");
-    GetRpl(nodes.Get(n))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+    GetRpl(nodes.Get(n))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));*/
 
     Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_routeAdded_node_" + std::to_string(n) + paramString + ".txt");
     GetRpl(nodes.Get(n))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
   }
+
+  /*for (int i = 1; i< numberOfNodes; ++i)
+  {
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
+    GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+
+    Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
+    GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
+  }*/
   
 
   // ---------------- Install Applications -------------------------------
@@ -276,11 +298,31 @@ int main (int argc, char *argv[])
   //UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(Ipv6Address (IPV6_GROUP_ADDR), 6000);
   UdpEchoServerHelper udpServerHelper = UdpEchoServerHelper(6000);
   
+  // set clients and servers
+  std::vector<uint32_t> clients;
+  std::vector<uint32_t> servers;
+  if (appSetup == 1 || appSetup == 4)
+  {
+    clients = {2};
+    servers = {1};
+  }else if (appSetup == 2 || appSetup == 5)
+  {
+    clients = {2,3};
+    servers = {1};
+  }else if (appSetup == 3 || appSetup == 6)
+  {
+    clients = {2,3,4,5};
+    servers = {1};
+  }else
+  {
+    NS_ABORT_MSG ("Unkown appSetup number " + std::to_string(appSetup) + " given!");
+  }
+
   // Add random app to root node and to first node:
-  for (uint32_t n : {0, numberOfNodes-1})
+  for (uint32_t n : clients)
   {
     NS_ABORT_MSG_IF (rootNode->GetId () == n, "udp client and server would be installed on the same node ( node " << rootNode->GetId () << "and " << n << ")");
-    udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (rootNode->GetId (),1)));
+    udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (servers.front (),1)));
     udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
     udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
     udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval)));
@@ -298,12 +340,16 @@ int main (int argc, char *argv[])
     apps.Get (0)->TraceConnectWithoutContext("TxWithAddresses", MakeBoundCallback (&UdpTxTraceWithAddressesSink, updClientTxWrapper));
   }
 
-  for (int n : {rootNode->GetId ()})
+  for (uint32_t n : servers)
   {
     udpServerHelper.SetAttribute ("Port", UintegerValue (6000));
     ApplicationContainer apps =  udpServerHelper.Install(nodes.Get(n));
     apps.Start (Seconds (1.0));
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updServerWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpServerReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updServerWrapper));
   }
 
 
