@@ -101,7 +101,7 @@ int main (int argc, char *argv[])
   cmd.AddValue("simulationTime", "the simulation time in seconds", simulationTimeSeconds);
   cmd.AddValue("applicationStart", "the application start time in seconds", applicationStartSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
-  cmd.AddValue("networkSetup", "how the trickle timer is set;0=normal, 1=dioIntervalMax=10s, 2=dioIntervalMax=20s", networkSetup);
+  cmd.AddValue("appSetup", "how the trickle timer is set;0=normal, 1=dioIntervalMax=10s, 2=dioIntervalMax=20s", appSetup);
   cmd.AddValue ("txPower", "Sending Power of the normal nodes.",txPower);
   cmd.AddValue ("energyModelEnabled","Enables or disables the assignment of an energy model to the nodes", energyModelEnabled);
   cmd.AddValue ("initialNodeEnergy","The available energy contained in the nodes battery", initialNodeEnergy);
@@ -247,13 +247,13 @@ int main (int argc, char *argv[])
   RplHelper rpl;
   // you can configure RPL attributes here using rpl.Set(name, value)
   //DIOIntervalMax = 10s
-  if (networkSetup == 1)
+  if (appSetup == 1)
   {
     // DIO Intervall Max = 2^DIOIntervalMin * 2^DIOIntervalDoublings
     // DIO Intervall Max = 8.192s
     rpl.Set ("DIOIntervalDoublings", UintegerValue (10));
     rpl.Set ("DIOIntervalMin", UintegerValue (3));
-  }else if (networkSetup == 2)
+  }else if (appSetup == 2)
   {
     // DIO Intervall Max = 16.384
     rpl.Set ("DIOIntervalDoublings", UintegerValue (11));
