@@ -94,7 +94,7 @@ int main (int argc, char *argv[])
   NetDeviceContainer devices;
   /// interfaces used in the example
   Ipv6InterfaceContainer interfaces;
-  int appSetup = 0;
+  int appSetup = 1;
   int networkSetup = 0;
   
   CommandLine cmd (__FILE__);
@@ -109,11 +109,12 @@ int main (int argc, char *argv[])
 
   cmd.Parse (argc,argv);
 
+  RngSeedManager::SetSeed (1);
+  RngSeedManager::SetRun (run);
+
   //std::string paramString = "_routingProtocol_" + routingProtocol + "_run_" + std::to_string(run) + "_appSetup_" + std::to_string(appSetup) + "_trafficInterval_" + std::to_string(trafficInterval);
   std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
 
-  RngSeedManager::SetSeed (1);
-  RngSeedManager::SetRun (run);
 
   Time applicationStart = Seconds (applicationStartSeconds);
   Time simulationTime = Seconds (simulationTimeSeconds);
@@ -295,15 +296,15 @@ int main (int argc, char *argv[])
   // Add all leaf nodes
   std::vector<int> clients;
   std::vector<int> servers;
-  if (appSetup == 0)
+  if (appSetup == 1)
   {
     clients = {4, 5, 6, 7};
     servers = {0};
-  }else if (appSetup == 1)
+  }else if (appSetup == 2)
   {
     clients = {5};
     servers = {7};
-  }else if (appSetup == 2)
+  }else if (appSetup == 3)
   {
     clients = {7};
     servers = {0};
@@ -314,7 +315,7 @@ int main (int argc, char *argv[])
 
   for (int n : clients)
   {
-    if (appSetup == 1)
+    if (appSetup == 2)
     {
       udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (7,1)));
     }else
