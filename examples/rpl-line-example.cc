@@ -154,7 +154,10 @@ int main (int argc, char *argv[])
   stack.SetIpv4StackInstall(false);
   stack.SetRoutingHelper (rpl);
   stack.Install (nodes);
-  //rpl.AssignDisMop (NodeContainer (nodes.Get (1)) , rpl::DIS_MOP_SEND, Seconds (1), 5, RPL_DEFAULT_INSTANCE, rpl::MOP_STORING_NO_MULTICAST);
+  if (node0Fail)
+  {
+    rpl.AssignDisMop (NodeContainer (nodes.Get (1)) , rpl::DIS_MOP_SEND, Seconds (1), 5, RPL_DEFAULT_INSTANCE, rpl::MOP_STORING_NO_MULTICAST);
+  }
   rpl.AssignRoot (NodeContainer (nodes.Get (0)) );
 
 
@@ -177,7 +180,10 @@ int main (int argc, char *argv[])
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
-
+    if (node0Fail)
+    {
+      GetRpl(nodes.Get(i))->TraceConnectWithoutContext("DetachFromDodag", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+    }
     Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
