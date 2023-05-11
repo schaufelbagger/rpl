@@ -70,6 +70,7 @@ int main (int argc, char *argv[])
 
   // parameters
   bool verbose = true;
+  bool showPositions = false;
   int numberOfNodes = 8;
   double applicationStartSeconds = 100;
   double simulationTimeSeconds = 115;
@@ -153,10 +154,14 @@ int main (int argc, char *argv[])
   nodes.Create(numberOfNodes);
   mobility.Install (nodes);
 
-  for (int i = 0; i< numberOfNodes; ++i)
+  if (showPositions)
   {
-    std::cout << "node " << +i << ": " << GetMobilityModel (nodes.Get (i))->GetPosition () << std::endl;
+    for (int i = 0; i< numberOfNodes; ++i)
+    {
+      std::cout << "node " << +i << ": " << GetMobilityModel (nodes.Get (i))->GetPosition () << std::endl;
+    }
   }
+
   // create nodes
   /*nodes.Create(numberOfNodes);
 
