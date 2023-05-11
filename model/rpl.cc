@@ -1419,6 +1419,7 @@ void RoutingProtocol::RegisterSockets (uint32_t interface)
       socket->Bind (local);  // this is the src Address if the socket is used to send packets, as well as the Address the Socket listens to when receiving packets
       socket->SetRecvCallback (MakeCallback (&RoutingProtocol::Receive, this));
       //socket->SetIpv6RecvHopLimit (true);
+      socket->SetIpv6HopLimit(244);
       socket->SetRecvPktInfo (true);
       m_unicastSocketList[socket] = interface;
     }
@@ -1439,6 +1440,7 @@ void RoutingProtocol::RegisterSockets (uint32_t interface)
     m_multicastRecvSocket->Bind (local);  // this is the src Address if the socket is used to send packets, as well as the Address the Socket listens to when receiving packets
     m_multicastRecvSocket->SetRecvCallback (MakeCallback (&RoutingProtocol::Receive, this));
     //m_multicastRecvSocket->SetIpv6RecvHopLimit (true);
+    m_multicastRecvSocket->SetIpv6HopLimit(244);
     m_multicastRecvSocket->SetRecvPktInfo (true);
   }
 }
