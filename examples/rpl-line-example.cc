@@ -48,7 +48,7 @@ NS_LOG_COMPONENT_DEFINE ("lineExample");
 int main (int argc, char *argv[])
 {
 
-  LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
+  //LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
   //LogComponentEnable ("Ipv6L3Protocol", LOG_LEVEL_LOGIC);
   //LogComponentEnable ("Icmpv6L4Protocol", LOG_LEVEL_LOGIC);
 
