@@ -314,16 +314,16 @@ TypeId RoutingProtocol::GetTypeId (void)
   return tid;
 }
 
-bool RoutingProtocol::RouteInput (Ptr< const Packet > p,
-  const Ipv6Header& header,
-  Ptr< const NetDevice > idev,
-  UnicastForwardCallback ucb,
-  MulticastForwardCallback mcb,
-  LocalDeliverCallback lcb,
-  ErrorCallback ecb)
+bool RoutingProtocol::RouteInput(Ptr<const Packet> p,
+                  const Ipv6Header& header,
+                  Ptr<const NetDevice> idev,
+                  const UnicastForwardCallback& ucb,
+                  const MulticastForwardCallback& mcb,
+                  const LocalDeliverCallback& lcb,
+                  const ErrorCallback& ecb)
 {
   NS_LOG_FUNCTION (this << p << header << header.GetSource () << header.GetDestination () << idev);
-  NS_ASSERT (m_ipv6 != 0);
+  NS_ASSERT (m_ipv6);
   // Check if input device supports IP
   NS_ASSERT (m_ipv6->GetInterfaceForDevice (idev) >= 0);
   uint32_t iif = m_ipv6->GetInterfaceForDevice (idev);
@@ -373,7 +373,7 @@ bool RoutingProtocol::RouteInput (Ptr< const Packet > p,
   NS_LOG_LOGIC ("Unicast destination");
   Ptr<Ipv6Route> rtentry = Lookup (header.GetDestination (), true);
 
-  if (rtentry != 0)
+  if (rtentry)
   {
     NS_LOG_LOGIC ("Found unicast destination - calling unicast callback");
     ucb (idev, rtentry, p, header);  // unicast forwarding callback
@@ -423,7 +423,7 @@ void RoutingProtocol::SetIpv6 (Ptr<Ipv6> ipv6)
 {
   NS_LOG_FUNCTION (this << ipv6);
 
-  NS_ASSERT (m_ipv6 == 0 && ipv6 != 0);
+  NS_ASSERT (!m_ipv6 && ipv6 );
   uint32_t i = 0;
   m_ipv6 = ipv6;
 
@@ -604,7 +604,7 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
 
 void RoutingProtocol::ReceiveDu (Ptr<Packet> packet, Ipv6Header ipv6Header, RplIcmpv6Header rplIcmpv6Header)
 {
-  NS_LOG_FUNCTION (this << +packet << ipv6Header);
+  NS_LOG_FUNCTION (this << packet << ipv6Header);
   NS_LOG_LOGIC ("Received Destination Unreachable from " << ipv6Header.GetSource ());
   uint16_t payloadLength;
   uint8_t code = rplIcmpv6Header.GetCode ();
@@ -660,7 +660,7 @@ void RoutingProtocol::ReceiveDu (Ptr<Packet> packet, Ipv6Header ipv6Header, RplI
 
 void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
 {
-  NS_LOG_FUNCTION (this << +packet << ipv6Header);
+  NS_LOG_FUNCTION (this << packet << ipv6Header);
   NS_LOG_LOGIC ("Received DIS from " << ipv6Header.GetSource ());
   DisHeader disHeader;
   uint16_t payloadLength;
@@ -715,7 +715,7 @@ void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
 
 void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uint32_t incomingInterface)
 {
-  NS_LOG_FUNCTION (this << +packet << ipv6Header);
+  NS_LOG_FUNCTION (this << packet << ipv6Header);
   DioHeader dioHeader;
   uint16_t payloadLength;
   bool receivedDodagConfiguration = false;
@@ -928,7 +928,7 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
 
 void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uint32_t incomingInterface)
 {
-  NS_LOG_FUNCTION (this << +packet << ipv6Header);
+  NS_LOG_FUNCTION (this << packet << ipv6Header);
   if (m_mop == MOP_NO_DOWNWARD_ROUTES)
   {
     NS_LOG_LOGIC ("Received DAO, but no downward route are supported - dropping DAO");
@@ -1033,7 +1033,7 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
 
 void RoutingProtocol::ReceiveDaoAck (Ptr<Packet> packet, Ipv6Header ipv6Header)
 {
-  NS_LOG_FUNCTION (this << +packet << ipv6Header);
+  NS_LOG_FUNCTION (this << packet << ipv6Header);
   NS_LOG_LOGIC ("Received DAO-ACK from " << ipv6Header.GetSource ());
   DaoAckHeader daoAckHeader;
   uint16_t payloadLength;

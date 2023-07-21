@@ -40,9 +40,9 @@
 
 #include "ns3/rpl-state.h"
 #include "ns3/energy-module.h"
-#include "ns3/lr-wpan-radio-energy-model.h"
+/*#include "ns3/lr-wpan-radio-energy-model.h"
 #include "ns3/lr-wpan-radio-energy-model-helper.h"
-
+*/
 #include "rpl-example-helper.h"
 
 //#define USE_WIFI
@@ -77,7 +77,7 @@ int main (int argc, char *argv[])
   bool energyModelEnabled = true;
   double txPower = 0;
   double initialNodeEnergy = 10;
-  double txCurrentA = 0.0101; // apperently not used, does not change jack shit
+  //double txCurrentA = 0.0101; // apperently not used, does not change jack shit
 
 
   int run = 1;
@@ -224,16 +224,16 @@ int main (int argc, char *argv[])
     basicSourceHelper.Set ("BasicEnergySourceInitialEnergyJ", DoubleValue (initialNodeEnergy));
     basicSourceHelper.Set ("PeriodicEnergyUpdateInterval", TimeValue (Simulator::GetMaximumSimulationTime())); // do not reload the battery
     sources = basicSourceHelper.Install(energyNodes);
-    LrWpanRadioEnergyModelHelper radioEnergyHelper;
+    /*LrWpanRadioEnergyModelHelper radioEnergyHelper;
     radioEnergyHelper.Set ("TxSendCurrentA", DoubleValue (txCurrentA));
-    DeviceEnergyModelContainer deviceModels = radioEnergyHelper.Install (energyDevices, sources);
-    //statHelper.Install(nodes.Get(it->first), DynamicCast<LrWpanNetDevice>(devContainer.Get(it->first)), energyModelEnabled, simEndTime);
+    DeviceEnergyModelContainer deviceModels = radioEnergyHelper.Install (energyDevices, sources);*/
+    // //statHelper.Install(nodes.Get(it->first), DynamicCast<LrWpanNetDevice>(devContainer.Get(it->first)), energyModelEnabled, simEndTime);
   }
 
   // Fake PAN association and short address assignment.
   // This is needed because the lr-wpan module does not provide (yet)
   // a full PAN association procedure.
-  lrWpanHelper.AssociateToPan (lrwpanDevices , 1);
+  lrWpanHelper.CreateAssociatedPan (lrwpanDevices , 1);
 
 #ifdef USE_SIXLOWPAN
   SixLowPanHelper sixlowpan;

@@ -15,6 +15,7 @@
 #include "ns3/applications-module.h"
 #include "ns3/trace-helper.h"
 #include "ns3/node.h"
+#include "ns3/time-data-calculators.h"
 
 using namespace ns3;
 

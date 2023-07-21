@@ -136,7 +136,7 @@ int main (int argc, char *argv[])
   // Fake PAN association and short address assignment.
   // This is needed because the lr-wpan module does not provide (yet)
   // a full PAN association procedure.
-  lrWpanHelper.AssociateToPan (lrwpanDevices , 1);
+  lrWpanHelper.CreateAssociatedPan (lrwpanDevices , 1);
 
 #ifdef USE_SIXLOWPAN
   SixLowPanHelper sixlowpan;

@@ -42,7 +42,7 @@ using namespace ns3;
 int main (int argc, char *argv[])
 {
 
-  LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
+  /*LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
   //LogComponentEnable ("Ipv6L3Protocol", LOG_LEVEL_LOGIC);
   //LogComponentEnable ("Icmpv6L4Protocol", LOG_LEVEL_LOGIC);
 
@@ -103,7 +103,7 @@ int main (int argc, char *argv[])
   // Fake PAN association and short address assignment.
   // This is needed because the lr-wpan module does not provide (yet)
   // a full PAN association procedure.
-  lrWpanHelper.AssociateToPan (lrwpanDevices , 1);
+  lrWpanHelper.CreateAssociatedPan (lrwpanDevices , 1);
 
 #ifdef USE_SIXLOWPAN
   SixLowPanHelper sixlowpan;
@@ -164,7 +164,7 @@ int main (int argc, char *argv[])
   Simulator::Run ();
   Simulator::Destroy ();
 
-  return 0;
+  return 0;*/
 }
 
 

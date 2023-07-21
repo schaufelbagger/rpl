@@ -118,13 +118,13 @@ public:
    */
   static TypeId GetTypeId (void);
 
-  bool RouteInput (Ptr< const Packet > p,
-  const Ipv6Header& header,
-  Ptr< const NetDevice > idev,
-  UnicastForwardCallback ucb,
-  MulticastForwardCallback mcb,
-  LocalDeliverCallback lcb,
-  ErrorCallback ecb);
+  bool RouteInput(Ptr<const Packet> p,
+                  const Ipv6Header& header,
+                  Ptr<const NetDevice> idev,
+                  const UnicastForwardCallback& ucb,
+                  const MulticastForwardCallback& mcb,
+                  const LocalDeliverCallback& lcb,
+                  const ErrorCallback& ecb) override;
   Ptr<Ipv6Route> RouteOutput (Ptr< Packet > p,
   const Ipv6Header& header,
   Ptr< NetDevice > oif,
