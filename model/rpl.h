@@ -27,12 +27,16 @@
 #include "ns3/trickle-timer.h"
 #include "ns3/traced-callback.h"
 #include "ns3/lollipop-counter.h"
+#include "ns3/ipv6-extension-header.h"
+#include "ns3/ipv6-header.h"
+
 
 #include "rpl-header.h"
 #include "rpl-header-option.h"
 #include "rpl-objective-function.h"
 #include "rpl-state.h"
 #include "rpl-routing-table.h"
+#include "rpl-ipv6-header.h"
 
 #include <memory>
 

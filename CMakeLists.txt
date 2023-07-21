@@ -19,6 +19,7 @@ build_lib(
                  model/rpl-objective-function.cc
                  model/rpl-state.cc
                  model/rpl-routing-table.cc
+                 model/rpl-ipv6-header.cc
     HEADER_FILES model/rpl.h
                  helper/rpl-helper.h
                  model/rpl-header.h
@@ -26,6 +27,7 @@ build_lib(
                  model/rpl-objective-function.h
                  model/rpl-state.h
                  model/rpl-routing-table.h
+                 model/rpl-ipv6-header.h
     LIBRARIES_TO_LINK ${libinternet}
                       ${libwifi}
                       ${liblr-wpan}

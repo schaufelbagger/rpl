@@ -47,6 +47,7 @@ private:
   void DaoTest ();
   void DaoAckTest ();
   void CcTest ();
+  void Ipv6Test();
   void DoRun ();
 };
 
