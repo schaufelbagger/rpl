@@ -550,7 +550,7 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
   }
   //NS_LOG_WARN("lqi: " << +lqiValue << "\n");
 
-  if (lqiValue < 180)
+  if (lqiValue < LQI_CUTOFF_VALUE)
   {
     NS_LOG_LOGIC ("LQI Value too low - dropping packet");
     return;
@@ -699,7 +699,7 @@ void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
     case OPTION_TYPE_PADN:
       break;
     case OPTION_TYPE_SOLICITED_INFORMATION:
-      //TODO add stuff here
+      // TODO add stuff here
       NS_ABORT_MSG ("TODO add what to do when receiving DIS with SI option");
       break;
     default:
@@ -710,7 +710,10 @@ void RoutingProtocol::ReceiveDis (Ptr<Packet> packet, Ipv6Header ipv6Header)
   
   if (ipv6Header.GetDestination ().IsMulticast ())
   {
-    m_trickleTimer.InconsistentEvent ();
+    if (!m_isLeaf)
+    {
+      m_trickleTimer.InconsistentEvent ();
+    }
   }
   else if (ipv6Header.GetDestination ().IsLinkLocal ())
   {
@@ -795,8 +798,8 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
             m_defaultLifetimeUnit = dodagConfiguration.lifetimeUnit;
             m_instanceId = dioHeader.GetRplInstanceId ();
             m_dodagVersionNumber = dioHeader.GetVersionNumber ();
-            m_rank = m_ocp.CalculateRank (dioHeader.GetRank ());
-            NS_LOG_DEBUG ("Setting Rank to " << +m_ocp.DagRank (m_rank));
+
+            
             m_isGrounded = dioHeader.GetGrounded ();
             m_mop = static_cast<RplMop_e>(dioHeader.GetMop ());
             m_dodagPreference = dioHeader.GetPrf ();
@@ -810,8 +813,15 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
             }else{
               m_isStoring = false;
             }
-            m_trickleTimer.SetParameters (MilliSeconds(pow(2,m_dioIntervalMin)), m_dioIntervalDoublings, m_dioRedundancyConstant);
-            m_trickleTimer.Enable ();
+
+            if (!m_isLeaf)
+            {
+              m_rank = m_ocp.CalculateRank (dioHeader.GetRank ());
+              m_trickleTimer.SetParameters (MilliSeconds(pow(2,m_dioIntervalMin)), m_dioIntervalDoublings, m_dioRedundancyConstant);
+              m_trickleTimer.Enable ();
+            }
+            NS_LOG_DEBUG ("Setting Rank to " << +m_ocp.DagRank (m_rank));
+
           }else
           {
             NS_ABORT_MSG ("TODO add what to do when ocp is received which is not supported by this node");
@@ -1113,8 +1123,10 @@ void RoutingProtocol::UpdatePreferredParent ()
       m_routingTable.AddRoute (m_dodagId, newPreferredParent.address, newPreferredParent.interface, 1, m_dodagId, m_instanceId, m_dtsn, 0xFF, false);
     }
     // trickle timer inconsistency due to parent change
-    m_trickleTimer.InconsistentEvent ();
-
+    if (!m_isLeaf)
+    {
+      m_trickleTimer.InconsistentEvent ();
+    }
     if (m_mop != MOP_NO_DOWNWARD_ROUTES)
     {
       m_dtsnChanged = true;
@@ -1139,13 +1151,17 @@ void RoutingProtocol::UpdatePreferredParent ()
   }
 
   //calculate new node rank from new parent
-  uint16_t newRank = m_ocp.CalculateRank (newPreferredParent.rank);
-  if (newRank != m_rank)
+  if (!m_isLeaf)
   {
-    m_rank = newRank;
-    NS_LOG_DEBUG ("Setting Rank to " << +m_ocp.DagRank (m_rank));
-    RemoveObsoleteParents ();
+    uint16_t newRank = m_ocp.CalculateRank (newPreferredParent.rank);
+    if (newRank != m_rank)
+    {
+      m_rank = newRank;
+      NS_LOG_DEBUG ("Setting Rank to " << +m_ocp.DagRank (m_rank));
+      RemoveObsoleteParents ();
+    }
   }
+
 
   UpdateDaoParents ();
 }
@@ -1604,6 +1620,7 @@ Ptr<Ipv6Route> RoutingProtocol::CreateRouteFromTableEntry (RplRoutingTableEntry 
 void RoutingProtocol::ExpireTrickleTimer (void)
 {
   NS_LOG_FUNCTION (this);
+  NS_ABORT_MSG_IF (m_isLeaf, "Leaves should not activate the trickle timer");
   // send DIO
   NS_LOG_LOGIC ("RPL: Send DIO Broadcast due to Trickle Timer expiration");
   Ptr<Packet> packet = Create<Packet> ();

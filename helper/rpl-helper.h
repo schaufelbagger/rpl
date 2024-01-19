@@ -97,8 +97,10 @@ public:
   void SetInstanceId (uint8_t value);
 
   void SetRoot (bool isRoot);
+  //void SetLeaf (bool isLeaf);
   void AssignRoot (NodeContainer c, uint8_t instanceId, rpl::RplMop_e mop, bool isRoot = true);
   void AssignRoot (NodeContainer c);
+  void AssignLeaf (NodeContainer c, bool isLeaf = true);
 
   /**
    * \brief sets the initialization mode of the node if it should wait for DIO messages or actively send DIS messages and become a root if no DIO message was received

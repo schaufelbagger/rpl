@@ -64,6 +64,8 @@ namespace rpl {
 #define DEFAULT_LIFETIME_UNIT 60*60
 #define DEFAULT_LIFETIME 24
 
+#define LQI_CUTOFF_VALUE 180
+
 
 
 enum RplMop_e : uint8_t {MOP_NO_DOWNWARD_ROUTES=0, MOP_NON_STORING=1, MOP_STORING_NO_MULTICAST=2, MOP_STORING_MULTICAST=3};
@@ -160,6 +162,23 @@ public:
   {
     return m_isRoot;
   }
+  /**
+   * \brief Set if node is Leaf
+   * \param isLeaf if node is Leaf
+   */
+  void SetLeaf (bool isLeaf)
+  {
+    m_isLeaf = isLeaf;
+  }
+  /**
+   * \brief Get if node is Leaf
+   * \return if node is Leaf
+   */
+  bool GetLeaf () const
+  {
+    return m_isLeaf;
+  }
+
   /**
    * \brief Set the Mode of Operation
    * \param mop the Mode of Operation

@@ -128,6 +128,44 @@ void RplHelper::AssignRoot (NodeContainer c)
   return AssignRoot (c, m_instanceId, m_mop, true);
 }
 
+void RplHelper::AssignLeaf (NodeContainer c, bool isLeaf)
+{
+  Ptr<Node> node;
+  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+    {
+      node = (*i);
+      Ptr<Ipv6> ipv6 = node->GetObject<Ipv6> ();
+      NS_ASSERT_MSG (ipv6, "Ipv6 not installed on node");
+      Ptr<Ipv6RoutingProtocol> proto = ipv6->GetRoutingProtocol ();
+      NS_ASSERT_MSG (proto, "Ipv6 routing not installed on node");
+      Ptr<rpl::RoutingProtocol> rpl = DynamicCast<rpl::RoutingProtocol> (proto);
+      if (rpl)
+      {
+        rpl->SetLeaf (isLeaf);
+        continue;
+      }
+      // RPL may also be in a list
+      Ptr<Ipv6ListRouting> list = DynamicCast<Ipv6ListRouting> (proto);
+      if (list)
+        {
+          int16_t priority;
+          Ptr<Ipv6RoutingProtocol> listProto;
+          Ptr<rpl::RoutingProtocol> listRpl;
+          for (uint32_t i = 0; i < list->GetNRoutingProtocols (); i++)
+            {
+              listProto = list->GetRoutingProtocol (i, priority);
+              listRpl = DynamicCast<rpl::RoutingProtocol> (listProto);
+              if (listRpl)
+                {
+                  rpl->SetLeaf (isLeaf);
+                  break;
+                }
+            }
+        }
+    }
+  return;
+}
+
 void RplHelper::AssignDisMop (NodeContainer c, rpl::RplDisMop_e disMop, Time disMessageTime, int numberOfDisMessages, uint8_t instanceId, rpl::RplMop_e mop)
 {
   Ptr<Node> node;
