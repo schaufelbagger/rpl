@@ -28,6 +28,7 @@
 #include "ns3/socket-factory.h"
 #include "ns3/ipv6-raw-socket-factory.h"
 #include "ns3/ipv6-packet-info-tag.h"
+#include "ns3/lr-wpan-lqi-tag.h"
 #include "ns3/boolean.h"
 #include "ns3/uinteger.h"
 #include<iostream>
@@ -537,6 +538,24 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
   {
     NS_ABORT_MSG ("received message on non existing interface");
   }
+
+
+  // Quality RSSI cutoff -> drop packets if link quality is to bad
+  uint8_t lqiValue = 255;
+  LrWpanLqiTag lqi;
+  if (packet->PeekPacketTag(lqi))
+  {
+    
+    lqiValue = lqi.Get();
+  }
+  //NS_LOG_WARN("lqi: " << +lqiValue << "\n");
+
+  if (lqiValue < 180)
+  {
+    NS_LOG_LOGIC ("LQI Value too low - dropping packet");
+    return;
+  }
+
 
   /*SocketIpv6HopLimitTag hoplimitTag;
   if (!packet->RemovePacketTag (hoplimitTag))
