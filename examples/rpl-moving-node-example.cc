@@ -291,7 +291,7 @@ int main (int argc, char *argv[])
   stack.Install (nodes);
   //rpl.AssignDisMop (NodeContainer (nodes.Get (1)) , rpl::DIS_MOP_SEND, Seconds (1), 5, RPL_DEFAULT_INSTANCE, rpl::MOP_STORING_NO_MULTICAST);
   rpl.AssignRoot (NodeContainer (rootNode) );
-
+  rpl.AssignLeaf(movingNodes, true);
 
   Ipv6AddressHelper ipv6;
   ipv6.SetBase (Ipv6Address ("2001:2::"), Ipv6Prefix (64));
