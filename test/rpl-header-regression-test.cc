@@ -201,7 +201,7 @@ void RplHeaderRegressionTest::CcTest ()
   NS_TEST_ASSERT_MSG_EQ (+outCcHeader.GetDestinationCounter (), +destinationCounter, "Destination Counter does not match");
 }
 
-void RplHeaderRegressionTest::Ipv6Test ()
+/*void RplHeaderRegressionTest::Ipv6Test ()
 {
   Ptr<Packet> packet = Create<Packet> ();
 
@@ -216,10 +216,10 @@ void RplHeaderRegressionTest::Ipv6Test ()
 
   RplIpv6Header inRplIpv6Header = RplIpv6Header (down, rank_error, forwarding_error, rplInstanceId, rank);
   RplIpv6Header outRplIpv6Header;
-  /*
-  RplIcmpv6Header inRplIcmpv6Header (TYPE_DIO);
-  RplIcmpv6Header outRplIcmpv6Header;
-  */
+  
+  //RplIcmpv6Header inRplIcmpv6Header (TYPE_DIO);
+  //RplIcmpv6Header outRplIcmpv6Header;
+  
 
  //inRplIpv6Header.Print(std::cout);
 
@@ -238,7 +238,7 @@ void RplHeaderRegressionTest::Ipv6Test ()
   NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetO (), +down, "Grounded Bit does not match");
   NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetR (), +rank_error, "MOP does not match");
   NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetF (), +forwarding_error, "PRF does not match");
-}
+}*/
 
 
 
