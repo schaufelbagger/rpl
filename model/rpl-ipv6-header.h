@@ -24,6 +24,7 @@
 #include "ns3/header.h"
 #include "ns3/object.h"
 #include "ns3/ipv6-option-header.h"
+#include "ns3/tag.h"
 
 
 namespace ns3 {
@@ -45,7 +46,96 @@ namespace rpl {
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   \endverbatim
  */
-class RplIpv6Header : public Ipv6OptionHeader
+
+class RplHopByHopHeaderTag : public Tag
+{
+public:
+  RplHopByHopHeaderTag ();
+  RplHopByHopHeaderTag( uint8_t o, 
+                        uint8_t r, 
+                        uint8_t f, 
+                        uint8_t rplInstanceId, 
+                        uint16_t senderRank);
+
+  uint8_t GetOptionNumber (void) const;
+
+  void SetO (uint8_t o)
+  {
+    NS_ABORT_MSG_IF(o > 1, "Size of field is larger than allowed");
+    m_o = o;
+  }
+    void SetO (bool o)
+  {
+    if (o)
+    {
+      m_o = 1;
+    }else
+    {
+      m_o = 0;
+    }
+
+  }
+  uint8_t GetO () const
+  {
+    return m_o;
+  }
+
+  void SetR (uint8_t r)
+  {
+    NS_ABORT_MSG_IF(r > 1, "Size of field is larger than allowed");
+    m_r = r;
+  }
+  uint8_t GetR () const
+  {
+    return m_r;
+  }
+
+  void SetF (uint8_t f)
+  {
+    NS_ABORT_MSG_IF(f > 1, "Size of field is larger than allowed");
+    m_f = f;
+  }
+  uint8_t GetF () const
+  {
+    return m_f;
+  }
+
+  void SetRplInstanceId (uint8_t id)
+  {
+    m_rplInstanceId = id;
+  }
+  uint8_t GetRplInstanceId () const
+  {
+    return m_rplInstanceId;
+  }
+
+  void SetSenderRank (uint16_t rank)
+  {
+    m_senderRank = rank;
+  }
+  uint16_t GetSenderRank () const
+  {
+    return m_senderRank;
+  }
+
+
+  static TypeId GetTypeId ();
+  TypeId GetInstanceTypeId () const;
+  uint32_t GetSerializedSize () const;
+  void Serialize (TagBuffer i) const;
+  void Deserialize (TagBuffer i);
+  void Print (std::ostream &os) const;
+
+private:
+  uint8_t m_o;
+  uint8_t m_r;
+  uint8_t m_f;
+  uint8_t m_rplInstanceId;
+  uint16_t m_senderRank;
+};
+
+// NOT USED AS IT DOES NOT WORK - USING TAG INSTEAD
+/*class RplIpv6Header : public Ipv6OptionHeader
 {
 public:
   RplIpv6Header();
@@ -119,7 +209,7 @@ private:
   uint16_t m_senderRank;
 
 };
-
+*/
 
 
 }
