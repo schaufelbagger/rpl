@@ -55,7 +55,9 @@ namespace rpl {
 #define DEFAULT_DIS_DELAY Seconds(1)
 #define DEFAULT_DIS_MESSAGES 5
 #define DEFAULT_DAO_DELAY Seconds(1)
-#define DEFAULT_DAO_MESSAGES 5
+#define DEFAULT_DAO_MESSAGES 25
+#define DEFAULT_DAO_ACK_DELAY Seconds(2)
+#define DEFAULT_MAX_DAO_JITTER_MILLISECONDS 1  // change to a more appropriate value
 #define DEFAULT_DODAG_PREFERENCE 0
 
 #define DEFAULT_INIT_DODAG_VERSION 0
@@ -64,7 +66,8 @@ namespace rpl {
 #define DEFAULT_LIFETIME_UNIT 60*60
 #define DEFAULT_LIFETIME 24
 
-#define LQI_CUTOFF_VALUE 180
+#define LQI_GENERAL_CUTOFF_VALUE 100
+#define LQI_DIO_CUTOFF_VALUE 240
 
 
 
@@ -336,7 +339,7 @@ private:
    * \param interface output interface if any (put 0 otherwise)
    * \return Ptr<Ipv6Route> Ipv6Route to route the packet to reach dest address
    */
-  Ptr<Ipv6Route> Lookup (Ipv6Address dst, bool setSource, Ptr<NetDevice> interface = 0);
+  Ptr<Ipv6Route> Lookup (Ipv6Address dst, bool setSource, bool &downward, Ptr<NetDevice> interface = 0);
 
   Ptr<Ipv6Route> CreateRouteFromTableEntry (RplRoutingTableEntry const route, bool setSource, Ipv6Address dst);
 
@@ -447,7 +450,7 @@ private:
   TrickleTimer m_trickleTimer = TrickleTimer (MilliSeconds(pow(2,DEFAULT_DIO_INTERVAL_MIN)), DEFAULT_DIO_INTERVAL_DOUBLINGS,DEFAULT_DIO_REDUNDANCY_CONSTANT);
   Timer m_disMessageTimer = Timer (Timer::CANCEL_ON_DESTROY);
   //Timer m_daoAckTimer = Timer (Timer::CANCEL_ON_DESTROY);
-  Time m_daoAckTimeout = Seconds(10);
+  Time m_daoAckTimeout = DEFAULT_DAO_ACK_DELAY;
 
   /// Events
   EventId m_sendDaoEvent = EventId ();
