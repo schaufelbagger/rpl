@@ -156,6 +156,24 @@ private:
 
 
 
+/*class RplRoute : public Ipv6Route
+{
+public:
+  void SetDownward (bool downward)
+  {
+    m_downward = downward;
+  }
+
+  bool GetDownward () const
+  {
+    return m_downward;
+  }
+private:
+  bool m_downward;
+};*/
+
+
+
 /**
  * \ingroup rpl
  * \brief   RPL routing table
