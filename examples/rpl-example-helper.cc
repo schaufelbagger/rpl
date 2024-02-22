@@ -127,6 +127,20 @@ void UpdatePrefParentTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rpl
   *stream->GetStream () << std::endl;                                                                      
 }
 
+void RplNodeDetachedConsoleSink(rpl::RplNode rplNode)
+{
+  NS_LOG_UNCOND (Simulator::Now().GetSeconds() << ", " << rplNode.address << ", " << rplNode.rank );
+}
+
+void RplNodeDetachedSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
+{ 
+  //NS_LOG_UNCOND (Simulator::Now().GetSeconds() << ", " << rplNode.address << ", " << rplNode.rank );
+  *stream->GetStream () << "Detached from parent: ";
+  *stream->GetStream () << Simulator::Now().GetSeconds();
+  *stream->GetStream () << ", " << rplNode.address;
+  *stream->GetStream () << ", " << rplNode.rank;
+  *stream->GetStream () << std::endl;                                                                      
+}
 
 void RouteAddedTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplRoutingTableEntry entry)
 { 
