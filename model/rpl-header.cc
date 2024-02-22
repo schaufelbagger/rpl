@@ -29,14 +29,16 @@ namespace rpl {
 
 RplIcmpv6Header::RplIcmpv6Header () : Icmpv6Header()
 {
-  this->SetType (uint8_t (155));
   NS_LOG_FUNCTION (this);
+  this->SetType (uint8_t (155));
+  m_calcChecksum = false;
 }
 RplIcmpv6Header::RplIcmpv6Header (RplPacketCode_e code) : Icmpv6Header()
 {
+  NS_LOG_FUNCTION (this);
   this->SetType (uint8_t (155));
   this->SetCode (code);
-  NS_LOG_FUNCTION (this);
+  m_calcChecksum = false;
 }
 TypeId RplIcmpv6Header::GetTypeId ()
 {
