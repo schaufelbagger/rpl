@@ -623,7 +623,7 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
 
   if (lqiValue < LQI_GENERAL_CUTOFF_VALUE)
   {
-    std::cout << "LQI:" << +lqiValue << std::endl;
+    //std::cout << "LQI:" << +lqiValue << std::endl;
     NS_LOG_LOGIC ("LQI Value too low - dropping packet");
     return;
   }
@@ -681,7 +681,7 @@ void RoutingProtocol::Receive (Ptr<Socket> socket)
     case TYPE_DIO:
       if (lqiValue < LQI_DIO_CUTOFF_VALUE)
       {
-        std::cout << "DIO LQI:" << +lqiValue << std::endl;
+        //std::cout << "DIO LQI:" << +lqiValue << std::endl;
         NS_LOG_LOGIC ("LQI Value too low for DIO - dropping packet");
         return;
       }
@@ -1056,7 +1056,8 @@ void RoutingProtocol::ReceiveDao (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
     {
       if (daoParent.address == ipv6Header.GetSource () && daoParent.interface == incomingInterface)
       {
-        NS_ABORT_MSG ("loop detected - received DAO from DAO parent");
+        NS_LOG_DEBUG ("loop detected - received DAO from DAO parent");
+        //NS_ABORT_MSG ("loop detected - received DAO from DAO parent");
       }
     }
   }
@@ -1344,7 +1345,18 @@ void RoutingProtocol::ClearPreferredParentRoutes()
 void RoutingProtocol::DetachFromDodag ()
 {
   NS_LOG_FUNCTION (this);
-  m_detachFromDodagTrace ({m_rank, m_ipv6->GetAddress (1,0).GetAddress (), 0,0});
+  // trace detach
+  for (uint32_t interface = 0; interface < m_ipv6->GetNInterfaces (); interface++)
+  {
+    if (m_interfaceExclusions.find (interface) == m_interfaceExclusions.end ())
+    {
+      for (uint32_t addressIndex = 0; addressIndex < m_ipv6->GetNAddresses (interface); addressIndex++)
+      {
+        Ipv6InterfaceAddress address = m_ipv6->GetAddress (interface, addressIndex);
+        m_detachFromDodagTrace ({m_rank, address.GetAddress (), 0,0});
+      }
+    }
+  }
   ClearDownwardRoutes ();
   for(auto iter = m_sentDaos.begin(); iter != m_sentDaos.end();)
   {
@@ -1565,6 +1577,7 @@ void RoutingProtocol::RegisterSockets (uint32_t interface)
 void RoutingProtocol::SendOnAllInterfaces (Ptr<Packet> packet, const Address &toAddress)
 {
   NS_LOG_FUNCTION (this << packet << toAddress);
+
   for (SocketListI iter = m_unicastSocketList.begin (); iter != m_unicastSocketList.end (); iter++ )
   {
     uint32_t interface = iter->second;
@@ -1815,12 +1828,10 @@ void RoutingProtocol::SendDao (bool isNoPath)
       }
       NS_ABORT_MSG_IF (!hasSelfTarget, "Node " << m_ipv6->GetObject<Node> ()->GetId () << "has no included interface with a global address - aborting");
     }
-    //packet->Print (std::cout);
+
     // add rpl targets and transitinformations from child nodes in reverse order
-    std::cout << m_daoSequence << "-------------------------------------------------------" << std::endl;
     for (std::list<RplHeaderOption>::reverse_iterator iter=childDaoOptionsCopy.rbegin(); iter!=childDaoOptionsCopy.rend(); ++iter)
     {
-      std::cout << *iter << std::endl;
       packet->AddHeader (*iter);
     }
   }
@@ -1836,9 +1847,7 @@ void RoutingProtocol::SendDao (bool isNoPath)
 
   packet->AddHeader (daoHeader);
   packet->AddHeader (rplIcmpv6Header);
-
-  //std::cout << m_daoSequence << std::endl;
-  //packet->Print (std::cout);
+  
 
   // Send to all dao parents (currently only the preferred parent)
   for (RplNode daoParent : m_daoParents)
