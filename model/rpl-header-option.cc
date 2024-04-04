@@ -35,7 +35,7 @@ m_optionLength (optionLength)
 TypeId RplHeaderOption::GetTypeId ()
 {
   static TypeId tid = TypeId ("ns3::rpl::RplHeaderOption")
-    .SetParent<Object> ()
+    .SetParent<Header> ()
     .SetGroupName ("Rpl")
     .AddConstructor<RplHeaderOption> ()
   ;
@@ -204,7 +204,7 @@ uint32_t RplHeaderOption::Deserialize (Buffer::Iterator start)
       // do nothing
       break;
     case OPTION_TYPE_PADN:
-      // do nothing
+      // TODO m_option.padN.Deserialize (i);
       break;
     case OPTION_TYPE_DAG_METRIC_CONTAINER:
       m_option.dagMetricContainer.Deserialize (i, m_optionLength);
@@ -276,8 +276,20 @@ void RplHeaderOption::PadN::Serialize (Buffer::Iterator start) const
   }
 }
 
-uint32_t RplHeaderOption::PadN::Deserialize (Buffer::Iterator start, uint8_t optionLength)
+uint32_t RplHeaderOption::PadN::Deserialize (Buffer::Iterator start)
 {
+  Buffer::Iterator i = start;
+  uint8_t size = i.ReadU8();
+  if (size <2 || size >7)
+  {
+    // Error, invalid length
+    return 0;
+  }
+  for (uint8_t iter=0; iter<size-2; iter++)
+  {
+    // for real we should check that the value is zero, but we kinda trust it is.
+    i.ReadU8();
+  }
   //must be ignored by receiver
   return 0;
 }

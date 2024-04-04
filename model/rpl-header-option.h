@@ -117,7 +117,7 @@ public:
      *        read from.
      * \returns the number of bytes read.
      */
-    uint32_t Deserialize (Buffer::Iterator start, uint8_t optionLength);
+    uint32_t Deserialize (Buffer::Iterator start);
   };
   /**
    * \brief Set RPL Header Options to PadN
