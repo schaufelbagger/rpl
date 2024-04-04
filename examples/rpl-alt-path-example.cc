@@ -62,7 +62,7 @@ NS_LOG_COMPONENT_DEFINE ("alternatePathExample");
 int main (int argc, char *argv[])
 {
 
-  LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
+  //LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
   //LogComponentEnable ("Ipv6L3Protocol", LOG_LEVEL_LOGIC);
   //LogComponentEnable ("Icmpv6L4Protocol", LOG_LEVEL_LOGIC);
 
@@ -76,7 +76,7 @@ int main (int argc, char *argv[])
   double turnOnNodeTimeSeconds = 300;
 
 #ifdef USE_APPLICATION
-  double trafficInterval = 10;
+  double trafficInterval = 1;
   int maxPackets = 2000;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
@@ -292,7 +292,7 @@ int main (int argc, char *argv[])
   Simulator::Schedule(silenceNodeTime, &SilenceNode, nodes.Get (1), 1);
   Simulator::Schedule(turnOnNodeTime, &TurnOnNode, nodes.Get (1), 1, Ipv6Address("2001:2::ff:fe00:2"));
 
-  Simulator::Stop (simulationTime);
+  Simulator::Stop (simulationTime + Seconds(2));
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
   

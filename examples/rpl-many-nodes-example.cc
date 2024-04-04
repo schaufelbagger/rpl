@@ -353,13 +353,19 @@ else if (appSetup >= 4 && appSetup <=6)
   }
 
 
-
-  Simulator::Stop (simulationTime);
+  Simulator::Stop (simulationTime + Seconds(2));
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
   
+  clock_t tStart = clock();
+
   Simulator::Run ();
   Simulator::Destroy ();
+
+  std::ofstream MyFile("RPLEXAMPLE_simtimetaken" + paramString + ".txt");
+  MyFile << (double)(clock() - tStart)/CLOCKS_PER_SEC;
+  MyFile.close();
+
 
   return 0;
 }

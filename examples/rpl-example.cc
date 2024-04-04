@@ -84,30 +84,78 @@ void TotalEnergy (double oldValue, double totalEnergy)
   NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "s Total energy consumed by radio = " << totalEnergy << "J");
 }
 
+//int lrwpanPacketCounter = 0;
+
+int packetCounter[50] = { 0 };
+
+void tx6lowpanTraceContextSink (Ptr<OutputStreamWrapper> stream, std::string context, Ptr<const Packet> packet,  Ptr<SixLowPanNetDevice> netdev, uint32_t interface)
+{
+  TimestampTag timestamp;
+  Time tx = Time ();
+  // find only UDP packets
+  if (packet->FindFirstMatchingByteTag (timestamp)) 
+  {
+    packetCounter[stoi(context)] ++;
+    int packetCnt = packetCounter[stoi(context)];
+    *stream->GetStream () << Simulator::Now().GetSeconds();
+    *stream->GetStream () << ", " << std::to_string(packetCnt) ;
+    *stream->GetStream () << std::endl;
+  } 
+}
+
+void txPacketTraceContextSink (Ptr<OutputStreamWrapper> stream, std::string context, Ptr<const Packet> packet, uint8_t retries, uint8_t csmaBackoffs)
+{
+  TimestampTag timestamp;
+  Time tx = Time ();
+  // find only UDP packets
+  if (packet->FindFirstMatchingByteTag (timestamp)) 
+  {
+    packetCounter[stoi(context)] ++;
+    int packetCnt = packetCounter[stoi(context)];
+    *stream->GetStream () << Simulator::Now().GetSeconds();
+    *stream->GetStream () << ", " << std::to_string(packetCnt) ;
+    *stream->GetStream () << std::endl;
+  } 
+}
+
+void rxPacketTraceContextSink (Ptr<OutputStreamWrapper> stream, std::string context, Ptr<const Packet> packet, double sinr)
+{
+  TimestampTag timestamp;
+  // find only UDP packets
+  if (packet->FindFirstMatchingByteTag (timestamp)) 
+  {
+    packetCounter[stoi(context)] ++;
+    int packetCnt = packetCounter[stoi(context)];
+    *stream->GetStream () << Simulator::Now().GetSeconds();
+    *stream->GetStream () << ", " << std::to_string(packetCnt);
+    *stream->GetStream () << std::endl;
+  }
+}
+
 
 int main (int argc, char *argv[])
 {
 
-  LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
+  //LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
   //LogComponentEnable ("Ipv6L3Protocol", LOG_LEVEL_LOGIC);
   //LogComponentEnable ("Icmpv6L4Protocol", LOG_LEVEL_LOGIC);
 
   // parameters
   bool verbose = true;
-  int numberOfNodes = 4;
+  int numberOfNodes = 3;
   // distance of nodes
-  int step = 50;
+  int step = 100;
   double applicationStartSeconds = 100;
   double simulationTimeSeconds = 110;
 #ifdef USE_APPLICATION
   double trafficInterval = 10;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
-  Time interPacketInterval = Seconds (1.);
+  //Time interPacketInterval = Seconds (1.);
 #endif
-  bool energyModelEnabled = true;
-  double txPower = 0;
-  double initialNodeEnergy = 10;
+  //bool energyModelEnabled = false;
+  //double txPower = 0;
+  //double initialNodeEnergy = 10;
 
   int run = 1;
   std::string routingProtocol ("rpl");
@@ -125,12 +173,13 @@ int main (int argc, char *argv[])
   cmd.AddValue("routingProtocol", "the routing protocol used", routingProtocol);
   cmd.AddValue("rplConfigFilename", "filename of the RPL configuration", rplConfigFilename);
   cmd.AddValue("run", "the run number", run);
+  cmd.AddValue("numberOfNodes", "number of nodes", numberOfNodes);
   cmd.AddValue("simulationTime", "the simulation time in seconds", simulationTimeSeconds);
   cmd.AddValue("applicationStart", "the application start time in seconds", applicationStartSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
-  cmd.AddValue ("txPower", "Sending Power of the normal nodes.",txPower);
-  cmd.AddValue ("energyModelEnabled","Enables or disables the assignment of an energy model to the nodes", energyModelEnabled);
-  cmd.AddValue ("initialNodeEnergy","The available energy contained in the nodes battery", initialNodeEnergy);
+  //cmd.AddValue ("txPower", "Sending Power of the normal nodes.",txPower);
+  //cmd.AddValue ("energyModelEnabled","Enables or disables the assignment of an energy model to the nodes", energyModelEnabled);
+  //cmd.AddValue ("initialNodeEnergy","The available energy contained in the nodes battery", initialNodeEnergy);
 
   cmd.Parse (argc,argv);
 
@@ -176,7 +225,7 @@ int main (int argc, char *argv[])
   // Add and install the LrWpanNetDevice for each node
   NetDeviceContainer lrwpanDevices = lrWpanHelper.Install(nodes);
 
-  EnergySourceContainer sources;
+  //EnergySourceContainer sources;
   //StatisticsHelper statHelper;
   /*if(energyModelEnabled)
   {
@@ -214,6 +263,7 @@ int main (int argc, char *argv[])
   stack.Install (nodes);
   //rpl.AssignDisMop (NodeContainer (nodes.Get (1)) , rpl::DIS_MOP_SEND, Seconds (1), 5, RPL_DEFAULT_INSTANCE, rpl::MOP_STORING_NO_MULTICAST);
   rpl.AssignRoot (NodeContainer (nodes.Get (0)) );
+  rpl.AssignLeaf (NodeContainer (nodes.Get (2)) );
 
 
   Ipv6AddressHelper ipv6;
@@ -230,9 +280,30 @@ int main (int argc, char *argv[])
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_updatedPrefParent_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+
+
+    Ptr<OutputStreamWrapper> txPackets = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_txPackets_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
+    Ptr<OutputStreamWrapper> rxPackets = asciiTraceHelper.CreateFileStream (
+      "RPLEXAMPLE_rxPackets_routingProtocol_" + routingProtocol + "_node_" + std::to_string(i) + "_run_" + std::to_string(run) + "" + ".txt");
+
+    Ptr<LrWpanNetDevice> lrwpandev = lrwpanDevices.Get (i)->GetObject<LrWpanNetDevice> ();
+
+
+    
+    //lrwpandev->GetPhy ()->TraceConnect("PhyTxEnd", std::to_string(i), MakeBoundCallback (&txPacketTraceContextSink, txPackets));
+    //lrwpandev->GetMac ()->TraceConnect("MacSentPkt", std::to_string(i), MakeBoundCallback (&txPacketTraceContextSink, txPackets));
+    devices.Get (i)->GetObject<SixLowPanNetDevice > ()->TraceConnect("Tx", std::to_string(i), MakeBoundCallback (&tx6lowpanTraceContextSink, txPackets));
+    
+    lrwpandev->GetPhy ()->TraceConnect("PhyRxEnd", std::to_string(i), MakeBoundCallback (&rxPacketTraceContextSink, rxPackets));
+    //lrwpandev->GetMac ()->TraceConnectWithoutContext("PhyTxEnd", MakeBoundCallback (&txPacketTraceSink, txPackets));
+
+
   }
 
-  if(energyModelEnabled)
+
+
+  /*if(energyModelEnabled)
   {
     // all sources are connected to node 1
     // energy source
@@ -245,7 +316,7 @@ int main (int argc, char *argv[])
     //NS_ASSERT (basicRadioModelPtr);
     //basicRadioModelPtr->TraceConnectWithoutContext ("TotalEnergyConsumption", MakeCallback (&TotalEnergy));
   }
-
+  */
 
   /*<Node> node;
   for (NodeContainer::Iterator i = nodes.Begin (); i != nodes.End (); ++i)
@@ -294,6 +365,12 @@ int main (int argc, char *argv[])
 
     apps.Start (applicationStart);
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updServerRxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_node_" + std::to_string(n) + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updServerRxWrapper));
+    Ptr<OutputStreamWrapper> updClientTxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientSend_node_" + std::to_string(n) + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("TxWithAddresses", MakeBoundCallback (&UdpTxTraceWithAddressesSink, updClientTxWrapper));
   }
 
   for (int n : {numberOfNodes-1})
@@ -302,11 +379,15 @@ int main (int argc, char *argv[])
     ApplicationContainer apps =  udpServerHelper.Install(nodes.Get(n));
     apps.Start (Seconds (1.0));
     apps.Stop (simulationTime);
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updServerWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpServerReceive_node_" + std::to_string(n) + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updServerWrapper));
   }
 
 
 
-  Simulator::Stop (simulationTime);
+  Simulator::Stop (simulationTime + Seconds(2));
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
   

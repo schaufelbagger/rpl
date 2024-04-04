@@ -56,7 +56,7 @@ int main (int argc, char *argv[])
   bool verbose = true;
   int numberOfNodes = 10;
   // distance of nodes
-  int step = 70;
+  int step = 80;
   double applicationStartSeconds = 107;
   double simulationTimeSeconds = 200;
 #ifdef USE_APPLICATION
@@ -104,7 +104,7 @@ int main (int argc, char *argv[])
   Time simulationTime = Seconds (simulationTimeSeconds);
   Time silenceNodeTime = Seconds (silenceNodeTimeSeconds);
 
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (1));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (1));
   //Config::SetDefault ("ns3::Icmpv6L4Protocol::RetransmissionTime", TimeValue (Seconds(60*60)));
@@ -187,6 +187,11 @@ int main (int argc, char *argv[])
     Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
+
+    Ptr<OutputStreamWrapper> nodeDetachedStream = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_node_detached_" + std::to_string(i) + paramString + ".txt");
+    
+    GetRpl(nodes.Get(i))->TraceConnectWithoutContext("DetachFromDodag", MakeBoundCallback (&RplNodeDetachedSink, nodeDetachedStream));
   }
   
 
@@ -243,9 +248,12 @@ int main (int argc, char *argv[])
   }
   
 
-  Simulator::Stop (simulationTime);
+  Simulator::Stop (simulationTime + Seconds(2));
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
+
+  //ns3::PacketMetadata::Enable ();
+  //GlobalValue::Bind ("ChecksumEnabled", BooleanValue (true));
   
   Simulator::Run ();
   Simulator::Destroy ();

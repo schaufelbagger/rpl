@@ -378,7 +378,7 @@ int main (int argc, char *argv[])
 
 
   // This is only a safety stop, simulation will end when the end position has been reached and the node wants to move again
-  Simulator::Stop (simulationTime);
+  Simulator::Stop (simulationTime + Seconds(2));
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
   

@@ -64,7 +64,7 @@ using namespace ns3;
 int main (int argc, char *argv[])
 {
 
-  LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
+  //LogComponentEnable ("Rpl", LOG_LEVEL_DEBUG);
   //LogComponentEnable ("Ipv6L3Protocol", LOG_LEVEL_LOGIC);
   //LogComponentEnable ("Icmpv6L4Protocol", LOG_LEVEL_LOGIC);
 
@@ -249,6 +249,7 @@ int main (int argc, char *argv[])
 
   for (int i = 0; i< numberOfNodes; ++i)
   {
+    lrwpanDevices.Get (i)->SetAttribute ("UseAcks", BooleanValue(true));
     deviceInterfaces.SetForwarding (i, true);
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
@@ -359,7 +360,7 @@ int main (int argc, char *argv[])
 
 
 
-  Simulator::Stop (simulationTime);
+  Simulator::Stop (simulationTime + Seconds(2));
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
   
