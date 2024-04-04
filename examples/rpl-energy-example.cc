@@ -34,6 +34,7 @@
 #include "ns3/applications-module.h"
 #include "ns3/trace-helper.h"
 #include "ns3/node.h"
+#include "ns3/flow-monitor-module.h"
 
 #include "ns3/lr-wpan-module.h"
 #include "ns3/yans-wifi-helper.h"
@@ -43,7 +44,10 @@
 /*#include "ns3/lr-wpan-radio-energy-model.h"
 #include "ns3/lr-wpan-radio-energy-model-helper.h"
 */
+#include "uint32-tag.h"
 #include "rpl-example-helper.h"
+
+#include <array>
 
 //#define USE_WIFI
 #define USE_SIXLOWPAN
@@ -52,6 +56,117 @@
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("energyExample");
+
+
+int packetCounter[50] = { 0 };
+std::map<std::array<uint8_t, 4>, std::set<uint32_t>> m_packetCounterMap;  // empty set
+
+void tx6lowpanTraceContextSink (Ptr<OutputStreamWrapper> stream, std::string context, Ptr<const Packet> packet,  Ptr<SixLowPanNetDevice> netdev, uint32_t interface)
+{
+
+  //TimestampTag timestamp;
+  //Time tx = Time ();
+  Uint32Tag tagCopy;
+  Ptr<Packet> pCopy = packet->Copy();
+  packet->Print (std::cout);
+
+  // find only UDP packets
+  if (pCopy->PeekPacketTag (tagCopy)) 
+  {
+
+    // Headers must be removed in the order they're present.
+    Ipv6Header ipHeader;
+    pCopy->RemoveHeader(ipHeader);
+
+    /*Ipv6Address from = ipHeader.GetSource ();
+    uint32_t currentCounter = tagCopy.GetSimpleValue ();
+    auto packetCounterSet = m_packetCounterMap[from];
+    auto setPair = packetCounterSet.insert (currentCounter);
+    m_packetCounterMap[from] = packetCounterSet;
+    if (!setPair.second)
+    {
+      //NS_LOG_UNCOND ("insert failed!");
+      return;
+    }*/
+    //packetCounter[stoi(context)] ++;
+    //int packetCnt = packetCounter[stoi(context)];
+    *stream->GetStream () << Simulator::Now().GetSeconds();
+    //*stream->GetStream () << ", " << std::to_string(currentCounter) ;
+    *stream->GetStream () << std::endl;
+  } 
+}
+
+void txPacketTraceContextUdpSink (Ptr<OutputStreamWrapper> stream, std::string context, Ptr<const Packet> packet, uint8_t retries, uint8_t csmaBackoffs)
+{
+
+  Uint32Tag tagCopy;
+  Ptr<Packet> pCopy = packet->Copy();
+  //packet->Print (std::cout);
+
+  int nodeNumber = stoi(context);
+
+  // find only UDP packets
+  if (pCopy->PeekPacketTag (tagCopy)) 
+  {
+
+    // Headers must be removed in the order they're present.
+    LrWpanMacHeader lrWpanHeader;
+    pCopy->RemoveHeader(lrWpanHeader);
+
+    std::array<uint8_t, 4>  buffer;
+
+    Mac16Address to = lrWpanHeader.GetShortDstAddr ();
+    Mac16Address from = lrWpanHeader.GetShortSrcAddr ();
+    //uint8_t seqNumber = lrWpanHeader.GetSeqNum ();
+
+    to.CopyTo (&buffer[0]);
+    from.CopyTo (&buffer[2]);
+
+    // check if node is layer 2 sender or receiver - if not discard trace
+    if (buffer[1]-1 != nodeNumber && buffer[3]-1 != nodeNumber)
+    {
+      return;
+    }
+
+    uint32_t currentCounter = tagCopy.GetSimpleValue ();
+
+    auto packetCounterSet = m_packetCounterMap[buffer];
+    auto setPair = packetCounterSet.insert (currentCounter);
+    m_packetCounterMap[buffer] = packetCounterSet;
+    if (!setPair.second)
+    {
+      //NS_LOG_UNCOND ("insert failed!");
+      return;
+    }
+    //packetCounter[stoi(context)] ++;
+    //int packetCnt = packetCounter[stoi(context)];
+    *stream->GetStream () << Simulator::Now().GetSeconds();
+    *stream->GetStream () << ", " << std::to_string(currentCounter) ;
+    *stream->GetStream () << std::endl;
+  } 
+}
+
+void txPacketTraceContextLrwpanSink (Ptr<OutputStreamWrapper> stream, std::string context, Ptr<const Packet> packet, uint8_t retries, uint8_t csmaBackoffs)
+{
+  //packetCounter[stoi(context)] ++;
+  //int packetCnt = packetCounter[stoi(context)];
+  *stream->GetStream () << Simulator::Now().GetSeconds();
+  //*stream->GetStream () << ", " << std::to_string(packetCnt) ;
+  *stream->GetStream () << std::endl;
+
+}
+
+
+void rxPacketTraceContextLrwpanSink (Ptr<OutputStreamWrapper> stream, std::string context, Ptr<const Packet> packet)
+{
+
+  //packetCounter[stoi(context)] ++;
+  //int packetCnt = packetCounter[stoi(context)];
+  *stream->GetStream () << Simulator::Now().GetSeconds();
+  //*stream->GetStream () << ", " << std::to_string(packetCnt);
+  *stream->GetStream () << std::endl;
+
+}
 
 
 int main (int argc, char *argv[])
@@ -66,7 +181,7 @@ int main (int argc, char *argv[])
   int numberOfNodes;
   // distance of nodes
   double applicationStartSeconds = 100;
-  double simulationTimeSeconds = 500;
+  double simulationTimeSeconds = 300;
 #ifdef USE_APPLICATION
   double trafficInterval = 1.0;
   int maxPackets = 10000;
@@ -74,9 +189,9 @@ int main (int argc, char *argv[])
   //uint32_t maxPacketCount = 5;
   Time interPacketInterval = Seconds (1.);
 #endif
-  bool energyModelEnabled = true;
-  double txPower = 0;
-  double initialNodeEnergy = 10;
+  //bool energyModelEnabled = true;
+  //double txPower = 0;
+  //double initialNodeEnergy = 10;
   //double txCurrentA = 0.0101; // apperently not used, does not change jack shit
 
 
@@ -85,6 +200,8 @@ int main (int argc, char *argv[])
   std::string rplConfigFilename ("rplConfig.csv");
   int appSetup = 0;
   int networkSetup = 0;
+  uint8_t dioIntervalDoublings = DEFAULT_DIO_INTERVAL_DOUBLINGS;
+  uint8_t dioIntervalMin = DEFAULT_DIO_INTERVAL_MIN;
   /// network
   /// nodes used in the example
   NodeContainer nodes;
@@ -102,9 +219,11 @@ int main (int argc, char *argv[])
   cmd.AddValue("applicationStart", "the application start time in seconds", applicationStartSeconds);
   cmd.AddValue("trafficInterval", "the intervall between data messages are sent", trafficInterval);
   cmd.AddValue("appSetup", "how the trickle timer is set;0=normal, 1=dioIntervalMax=10s, 2=dioIntervalMax=20s", appSetup);
-  cmd.AddValue ("txPower", "Sending Power of the normal nodes.",txPower);
-  cmd.AddValue ("energyModelEnabled","Enables or disables the assignment of an energy model to the nodes", energyModelEnabled);
-  cmd.AddValue ("initialNodeEnergy","The available energy contained in the nodes battery", initialNodeEnergy);
+  cmd.AddValue("dioIntervalDoublings", "the RPL DIO Trickle timer Interval Doublings parameter", dioIntervalDoublings);
+  cmd.AddValue("dioIntervalMin", "the RPL DIO Trickle timer Interval Min parameter", dioIntervalMin);
+  //cmd.AddValue ("txPower", "Sending Power of the normal nodes.",txPower);
+  //cmd.AddValue ("energyModelEnabled","Enables or disables the assignment of an energy model to the nodes", energyModelEnabled);
+  //cmd.AddValue ("initialNodeEnergy","The available energy contained in the nodes battery", initialNodeEnergy);
 
   cmd.Parse (argc,argv);
 
@@ -113,9 +232,9 @@ int main (int argc, char *argv[])
 
   
 
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (1));
-  Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (1));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::DAD", BooleanValue (false));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxUnicastSolicit", IntegerValue (1));
+  //Config::SetDefault ("ns3::Icmpv6L4Protocol::MaxMulticastSolicit", IntegerValue (1));
 
   Time applicationStart = Seconds (applicationStartSeconds);
   Time simulationTime = Seconds (simulationTimeSeconds);
@@ -195,40 +314,14 @@ int main (int argc, char *argv[])
 
 
   std::string paramString = get_param_string(routingProtocol, run, numberOfNodes, trafficInterval, applicationStartSeconds, simulationTimeSeconds, networkSetup, appSetup);
-  
+  paramString = "_DIDoublings_" + std::to_string(dioIntervalDoublings) + "_DIMin_" + std::to_string(dioIntervalMin) + paramString;
   // ---------------- Create Devices -------------------------------
 
 
   LrWpanHelper lrWpanHelper;
   // Add and install the LrWpanNetDevice for each node
   NetDeviceContainer lrwpanDevices = lrWpanHelper.Install(nodes);
-  NetDeviceContainer energyDevices = NetDeviceContainer ();
-  energyDevices.Add (lrwpanDevices.Get (4));
-  energyDevices.Add (lrwpanDevices.Get (5));
-  energyDevices.Add (lrwpanDevices.Get (6));
-  energyDevices.Add (lrwpanDevices.Get (7));
-  energyDevices.Add (lrwpanDevices.Get (8));
-  NodeContainer energyNodes = NodeContainer (nodes.Get (4), nodes.Get (5), nodes.Get (6), nodes.Get (7), nodes.Get (8) );
-  int numberOfEnergyNodes = 5;
 
-  EnergySourceContainer sources;
-  if(energyModelEnabled)
-  {
-
-    for (int i = 0; i< numberOfEnergyNodes; ++i)
-    {
-      Ptr<LrWpanPhy> phy = energyDevices.Get(i)->GetObject<LrWpanNetDevice>()->GetPhy();
-      phy->SetAttribute("TxPower", DoubleValue(txPower));
-    }
-    BasicEnergySourceHelper basicSourceHelper;
-    basicSourceHelper.Set ("BasicEnergySourceInitialEnergyJ", DoubleValue (initialNodeEnergy));
-    basicSourceHelper.Set ("PeriodicEnergyUpdateInterval", TimeValue (Simulator::GetMaximumSimulationTime())); // do not reload the battery
-    sources = basicSourceHelper.Install(energyNodes);
-    /*LrWpanRadioEnergyModelHelper radioEnergyHelper;
-    radioEnergyHelper.Set ("TxSendCurrentA", DoubleValue (txCurrentA));
-    DeviceEnergyModelContainer deviceModels = radioEnergyHelper.Install (energyDevices, sources);*/
-    // //statHelper.Install(nodes.Get(it->first), DynamicCast<LrWpanNetDevice>(devContainer.Get(it->first)), energyModelEnabled, simEndTime);
-  }
 
   // Fake PAN association and short address assignment.
   // This is needed because the lr-wpan module does not provide (yet)
@@ -246,8 +339,10 @@ int main (int argc, char *argv[])
   // install TCP/IP & RPL
   RplHelper rpl;
   // you can configure RPL attributes here using rpl.Set(name, value)
+  rpl.Set ("DIOIntervalDoublings", UintegerValue (dioIntervalDoublings));
+  rpl.Set ("DIOIntervalMin", UintegerValue (dioIntervalMin));
   //DIOIntervalMax = 10s
-  if (appSetup == 1)
+  /*if (appSetup == 1)
   {
     // DIO Intervall Max = 2^DIOIntervalMin * 2^DIOIntervalDoublings
     // DIO Intervall Max = 8.192s
@@ -259,6 +354,12 @@ int main (int argc, char *argv[])
     rpl.Set ("DIOIntervalDoublings", UintegerValue (11));
     rpl.Set ("DIOIntervalMin", UintegerValue (3));
   }
+  else if (appSetup == 3)
+  {
+    // DIO Intervall Max = 16.384
+    rpl.Set ("DIOIntervalDoublings", UintegerValue (13));
+    rpl.Set ("DIOIntervalMin", UintegerValue (3));
+  }*/
   
 
   InternetStackHelper stack;
@@ -267,6 +368,7 @@ int main (int argc, char *argv[])
   stack.Install (nodes);
   //rpl.AssignDisMop (NodeContainer (nodes.Get (1)) , rpl::DIS_MOP_SEND, Seconds (1), 5, RPL_DEFAULT_INSTANCE, rpl::MOP_STORING_NO_MULTICAST);
   rpl.AssignRoot (NodeContainer (nodes.Get (0)) );
+  rpl.AssignLeaf(NodeContainer (nodes.Get (34), nodes.Get (35), nodes.Get (36), nodes.Get (37), nodes.Get (38),nodes.Get (39), nodes.Get (40), nodes.Get (41), nodes.Get (42)), true);
 
 
   Ipv6AddressHelper ipv6;
@@ -289,23 +391,26 @@ int main (int argc, char *argv[])
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
   }
 
-  if(energyModelEnabled)
+  for (int i : {4,5,6,7,8})
   {
-    // all sources are connected to node 1
-    // energy source
-    for (int n : {4,5,6,7,8})
-    {
-      Ptr<BasicEnergySource> basicSourcePtr = DynamicCast<BasicEnergySource> (sources.Get (n-4));
-      AsciiTraceHelper asciiTraceHelper;
-      Ptr<OutputStreamWrapper> remainingEnergy = asciiTraceHelper.CreateFileStream ("RPLEXAMPLE_remainingEnergy_node_" + std::to_string(n) + paramString + "" + ".txt");
-      basicSourcePtr->TraceConnectWithoutContext ("RemainingEnergy", MakeBoundCallback (&RemainingEnergy, remainingEnergy));
-    }
-    // device energy model
-    //Ptr<DeviceEnergyModel> basicRadioModelPtr = basicSourcePtr->FindDeviceEnergyModels ("ns3::LrWpanRadioEnergyModel").Get (0);
-    //NS_ASSERT (basicRadioModelPtr);
-    //basicRadioModelPtr->TraceConnectWithoutContext ("TotalEnergyConsumption", MakeCallback (&TotalEnergy));
-  }
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> txUdpPackets = asciiTraceHelper.CreateFileStream (
+      "RPLEXAMPLE_txUdpPackets_node_" + std::to_string(i) + paramString + ".txt");
+    Ptr<OutputStreamWrapper> txLrwpanPackets = asciiTraceHelper.CreateFileStream (
+      "RPLEXAMPLE_txLrwpanPackets_node_" + std::to_string(i) + paramString + ".txt");
+    Ptr<OutputStreamWrapper> rxLrwpanPackets = asciiTraceHelper.CreateFileStream (
+      "RPLEXAMPLE_rxLrwpanPackets_node_" + std::to_string(i) + paramString + ".txt");
+    //Ptr<OutputStreamWrapper> rxPackets = asciiTraceHelper.CreateFileStream (
+    //  "RPLEXAMPLE_rxPackets__node_" + std::to_string(i) + paramString + ".txt");
 
+    Ptr<LrWpanNetDevice> lrwpandev = lrwpanDevices.Get (i)->GetObject<LrWpanNetDevice> ();
+    lrwpandev->GetMac ()->TraceConnect("MacSentPkt", std::to_string(i), MakeBoundCallback (&txPacketTraceContextUdpSink, txUdpPackets));
+    lrwpandev->GetMac ()->TraceConnect("MacSentPkt", std::to_string(i), MakeBoundCallback (&txPacketTraceContextLrwpanSink, txLrwpanPackets));
+    lrwpandev->GetMac ()->TraceConnect("MacPromiscRx", std::to_string(i), MakeBoundCallback (&rxPacketTraceContextLrwpanSink, rxLrwpanPackets));
+    //devices.Get (i)->GetObject<SixLowPanNetDevice > ()->TraceConnect("Tx", std::to_string(i), MakeBoundCallback (&tx6lowpanTraceContextSink, txPackets));
+
+    //lrwpandev->GetPhy ()->TraceConnect("PhyRxEnd", std::to_string(i), MakeBoundCallback (&rxPacketTraceContextSink, rxPackets));
+  }
 
   // ---------------- Install Applications -------------------------------
 
@@ -315,18 +420,22 @@ int main (int argc, char *argv[])
   //UdpEchoClientHelper udpClientHelper = UdpEchoClientHelper(Ipv6Address (IPV6_GROUP_ADDR), 6000);
   UdpEchoServerHelper udpServerHelper = UdpEchoServerHelper(6000);
   
-  // Add random app to three nodes:
-  for (int n : {numberOfNodes-1})
+
+  // Add send app to leaf nodes:
+  int jitter = 0;
+  for (int n : {34, 35, 36, 37, 38, 39, 40, 41, 42})
+  //for (int n : {41, 42})
   {
     udpClientHelper.SetAttribute ("RemoteAddress", AddressValue (deviceInterfaces.GetAddress (0,1)));
     udpClientHelper.SetAttribute ("RemotePort", UintegerValue (6000));
     udpClientHelper.SetAttribute ("PacketSize", UintegerValue (packetSize));
-    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval)));
+    udpClientHelper.SetAttribute ("Interval", TimeValue (Seconds (trafficInterval) ));
     udpClientHelper.SetAttribute ("MaxPackets", UintegerValue (maxPackets));
     ApplicationContainer apps = udpClientHelper.Install(nodes.Get(n));
 
-    apps.Start (applicationStart);
+    apps.Start (applicationStart + MilliSeconds(jitter));
     apps.Stop (simulationTime);
+    //jitter = jitter + 10;
 
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updClientRxWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpClientReceive_node_" + std::to_string(n) + paramString + ".txt");
@@ -341,14 +450,22 @@ int main (int argc, char *argv[])
     udpServerHelper.SetAttribute ("Port", UintegerValue (6000));
     ApplicationContainer apps =  udpServerHelper.Install(nodes.Get(n));
     apps.Start (Seconds (1.0));
-    apps.Stop (simulationTime);
+    apps.Stop (simulationTime + Seconds(2));
+
+    AsciiTraceHelper asciiTraceHelper;
+    Ptr<OutputStreamWrapper> updServerWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpServerReceive_node_" + std::to_string(n) + paramString + ".txt");
+    apps.Get (0)->TraceConnectWithoutContext("RxWithAddresses", MakeBoundCallback (&UdpRxTraceWithAddressesSink, updServerWrapper));
   }
 
+  // install FlowMonitor to collect simulation statistics
+  //FlowMonitorHelper flowHelper;
+  //Ptr<FlowMonitor> flowMonitor = flowHelper.InstallAll();
 
-  Simulator::Stop (simulationTime);
+  Simulator::Stop (simulationTime + Seconds(2));
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
-  
+  ns3::PacketMetadata::Enable ();
+
   Simulator::Run ();
   Simulator::Destroy ();
 
