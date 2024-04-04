@@ -42,6 +42,7 @@ private:
   /// Total simulation time
   const Time m_time;
   /// Create & configure test network
+  void PadNTest ();
   void DagMetricContainerTest ();
   void RouteInformationTest ();
   void DodagConfigurationTest ();

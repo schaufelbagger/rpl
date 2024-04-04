@@ -40,6 +40,7 @@ RplHeaderOptionRegressionTest::~RplHeaderOptionRegressionTest ()
 
 void RplHeaderOptionRegressionTest::DoRun ()
 {
+  //this->PadNTest ();
   this->DagMetricContainerTest ();
   this->RouteInformationTest ();
   this->DodagConfigurationTest ();
@@ -52,6 +53,36 @@ void RplHeaderOptionRegressionTest::DoRun ()
   Simulator::Stop (m_time);
   Simulator::Run ();
   Simulator::Destroy ();
+}
+
+void RplHeaderOptionRegressionTest::PadNTest ()
+{
+  Ptr<Packet> packet = Create<Packet> ();
+  RplHeaderOption inputOption;
+  RplHeaderOption outputOption;
+
+  RplIcmpv6Header inRplIcmpv6Header;
+  RplIcmpv6Header outRplIcmpv6Header;
+  DisHeader inDisHeader;
+  DisHeader outDisHeader;
+  inDisHeader.SetFlags (3);
+
+
+  inputOption.SetPadN (2);
+
+  std::cout << inputOption.GetSerializedSize () << std::endl;
+
+  //packet->AddHeader (inputOption);
+  //packet->AddHeader (inDisHeader);
+  //packet->AddHeader (inRplIcmpv6Header);
+
+  //packet->Print (std::cout);
+
+  //packet->RemoveHeader (outRplIcmpv6Header);
+  //packet->RemoveHeader (outputOption);
+  //outputOption.Print ();
+  //const RplHeaderOption::PadN &padn = outputOption.GetPad();
+  //NS_TEST_ASSERT_MSG_EQ (+outDisHeader.GetFlags (), 3, "Code does not match");
 }
 
 void RplHeaderOptionRegressionTest::DagMetricContainerTest ()
@@ -159,7 +190,7 @@ void RplHeaderOptionRegressionTest::DodagConfigurationTest ()
 
   buffer.AddAtStart (inputOption.GetSerializedSize ());
 
-  inputOption.Print ();
+  //inputOption.Print ();
 
   NS_TEST_ASSERT_MSG_EQ (+inputOption.GetType (), 0x04, "type does not match");
   NS_TEST_ASSERT_MSG_EQ (+inputOption.GetOptionLength (), 14, "option length does not match");

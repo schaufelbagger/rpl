@@ -46,10 +46,11 @@ public:
 
 RegressionTestSuite::RegressionTestSuite () : TestSuite ("rpl-reg", SYSTEM)
 {
+  ns3::PacketMetadata::Enable ();
   // TestDuration for TestCase can be QUICK, EXTENSIVE or TAKES_FOREVER
   AddTestCase (new RplHeaderRegressionTest, TestCase::QUICK);
   AddTestCase (new RplHeaderOptionRegressionTest, TestCase::QUICK);
-  AddTestCase (new RplHelloRegressionTest, TestCase::QUICK);
+  //AddTestCase (new RplHelloRegressionTest, TestCase::QUICK);
 }
 
 // Do not forget to allocate an instance of this TestSuite

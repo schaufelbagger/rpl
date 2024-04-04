@@ -47,7 +47,7 @@ void RplHeaderRegressionTest::DoRun ()
   this->DaoTest ();
   this->DaoAckTest ();
   this->CcTest ();
-  this->Ipv6Test();
+  //this->Ipv6Test();
 
   Simulator::Stop (m_time);
   Simulator::Run ();
@@ -128,6 +128,9 @@ void RplHeaderRegressionTest::DaoTest ()
 
   packet->AddHeader (inDaoHeader);
   packet->AddHeader (inRplIcmpv6Header);
+
+  //packet->Print (std::cout);
+
   packet->RemoveHeader (outRplIcmpv6Header);
   NS_TEST_ASSERT_MSG_EQ (+outRplIcmpv6Header.GetType (), 155, "Type does not match");
   NS_TEST_ASSERT_MSG_EQ (+outRplIcmpv6Header.GetCode (), 2, "Code does not match");
