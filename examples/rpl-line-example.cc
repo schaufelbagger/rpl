@@ -56,11 +56,11 @@ int main (int argc, char *argv[])
   bool verbose = true;
   int numberOfNodes = 10;
   // distance of nodes
-  int step = 80;
-  double applicationStartSeconds = 107;
+  int step = 70;
+  double applicationStartSeconds = 100;
   double simulationTimeSeconds = 200;
 #ifdef USE_APPLICATION
-  double trafficInterval = 10;
+  double trafficInterval = 1;
   int maxPackets = 2000;
   uint32_t packetSize = 10;
   //uint32_t maxPacketCount = 5;
