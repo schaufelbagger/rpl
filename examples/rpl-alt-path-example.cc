@@ -148,8 +148,8 @@ int main (int argc, char *argv[])
   positionAlloc->Add(Vector3D (100,0,0));
   positionAlloc->Add(Vector3D (50,70,0));
   positionAlloc->Add(Vector3D (160,60,0));
-  positionAlloc->Add(Vector3D (170,120,0));
-  positionAlloc->Add(Vector3D (70,150,0));
+  positionAlloc->Add(Vector3D (160,140,0));
+  positionAlloc->Add(Vector3D (80,150,0));
   //positionAlloc->Add("position_" + mode + ".csv");
   mobility.SetPositionAllocator (positionAlloc);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
@@ -233,6 +233,11 @@ int main (int argc, char *argv[])
       Ptr<OutputStreamWrapper> routeAddedStream = asciiTraceHelper.CreateFileStream (
         "RPLEXAMPLE_routeAdded_node_" + std::to_string(i) + paramString + ".txt");
       GetRpl(nodes.Get(i))->TraceConnectWithoutContext("routeAdded", MakeBoundCallback (&RouteAddedTraceSink, routeAddedStream));
+
+      Ptr<OutputStreamWrapper> nodeDetachedStream = asciiTraceHelper.CreateFileStream (
+          "RPLEXAMPLE_node_detached_" + std::to_string(i) + paramString + ".txt");
+      GetRpl(nodes.Get(i))->TraceConnectWithoutContext("DetachFromDodag", MakeBoundCallback (&RplNodeDetachedSink, nodeDetachedStream));
+
     }
     /*else if (routingProtocol == "ripng")
     {
@@ -282,7 +287,7 @@ int main (int argc, char *argv[])
     udpServerHelper.SetAttribute ("Port", UintegerValue (6000));
     ApplicationContainer apps =  udpServerHelper.Install(nodes.Get(n));
     apps.Start (Seconds (1.0));
-    apps.Stop (simulationTime);
+    apps.Stop (simulationTime + Seconds(4));
 
     AsciiTraceHelper asciiTraceHelper;
     Ptr<OutputStreamWrapper> updServerWrapper = asciiTraceHelper.CreateFileStream ( "RPLEXAMPLE_udpServerReceive_node_" + std::to_string(n) + paramString + ".txt");
@@ -292,7 +297,7 @@ int main (int argc, char *argv[])
   Simulator::Schedule(silenceNodeTime, &SilenceNode, nodes.Get (1), 1);
   Simulator::Schedule(turnOnNodeTime, &TurnOnNode, nodes.Get (1), 1, Ipv6Address("2001:2::ff:fe00:2"));
 
-  Simulator::Stop (simulationTime + Seconds(2));
+  Simulator::Stop (simulationTime + Seconds(5));
   
   lrWpanHelper.EnablePcapAll ("RPLEXAMPLEPCAP", true);
   
