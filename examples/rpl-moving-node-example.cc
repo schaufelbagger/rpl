@@ -82,6 +82,13 @@ void TestTrace ( Ptr<ns3::MobilityModel const> newValue)
   
 }
 
+void MovingNodeDetachTraceSink(Ptr<OutputStreamWrapper> stream, rpl::RplNode rplNode)
+{ 
+  *stream->GetStream () << Simulator::Now().GetSeconds();
+  *stream->GetStream () << ", " << "detached";
+  *stream->GetStream () << ", " << rplNode.rank;
+  *stream->GetStream () << std::endl;                                                                      
+}
 
 
 
@@ -238,13 +245,13 @@ int main (int argc, char *argv[])
 
 
   //double pauseMean = 50;
-  double pauseVariance = 1/3;
+  double pauseVariance = 0;//1/3;
   Ptr<NormalRandomVariable> pause = CreateObject<NormalRandomVariable> ();
   pause->SetAttribute ("Mean", DoubleValue (pauseMean));
   pause->SetAttribute ("Variance", DoubleValue (pauseVariance));
 
   //double speedMean = 2.0;
-  double speedVariance = 0.1;
+  double speedVariance = 0.0;
   Ptr<NormalRandomVariable> speed = CreateObject<NormalRandomVariable> ();
   speed->SetAttribute ("Mean", DoubleValue (speedMean));
   speed->SetAttribute ("Variance", DoubleValue (speedVariance));
@@ -306,6 +313,8 @@ int main (int argc, char *argv[])
     Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
           "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
     GetRpl(nodes.Get(i))->TraceConnectWithoutContext("UpdatedPrefParent", MakeBoundCallback (&UpdatePrefParentTraceSink, updatedPrefParent));
+
+    GetRpl(nodes.Get(i))->TraceConnectWithoutContext("DetachFromDodag", MakeBoundCallback (&MovingNodeDetachTraceSink, updatedPrefParent));
 
     //Ptr<OutputStreamWrapper> updatedPrefParent = asciiTraceHelper.CreateFileStream (
     //      "RPLEXAMPLE_updatedPrefParent_node_" + std::to_string(i) + paramString + ".txt");
@@ -371,7 +380,7 @@ int main (int argc, char *argv[])
     udpServerHelper.SetAttribute ("Port", UintegerValue (6000));
     ApplicationContainer apps =  udpServerHelper.Install(nodes.Get(n));
     apps.Start (Seconds (1.0));
-    apps.Stop (simulationTime);
+    apps.Stop (simulationTime + Seconds(2));
   }
 
   //Simulator::Schedule(Seconds(1), &RplConnectionUp);
