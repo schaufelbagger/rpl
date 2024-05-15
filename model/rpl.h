@@ -34,7 +34,7 @@
 #include "rpl-header.h"
 #include "rpl-header-option.h"
 #include "rpl-objective-function.h"
-#include "rpl-state.h"
+#include "rpl-node.h"
 #include "rpl-routing-table.h"
 #include "rpl-ipv6-header.h"
 
@@ -319,9 +319,7 @@ private:
   void DetachFromDodag ();
   void ClearDownwardRoutes ();
   void PoisonChildren ();
-  //void AddRouteToRoutingTable (Ipv6Address dest, Ipv6Address nextHop, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward);
-  //void AddRouteToRoutingTable (Ipv6Address dest, uint32_t interface, uint16_t metric, Ipv6Address dodagId, uint8_t instanceId, uint8_t dtsn, bool downward);
-  //void AddDownwardRoutesToRoutingTable (std::list<RplHeaderOption::RplTarget> rplTargets, std::list<RplHeaderOption::TransitInformation> transitInformations, Ipv6Address nextHop, uint32_t interface, uint16_t metric, uint8_t daoSequence);
+
   /**
    * \brief adds sending and receive sockets
    * 
@@ -375,8 +373,6 @@ private:
   Ptr<Socket> m_multicastRecvSocket; // multicast receive socket
   
   /// List of known routes
-  //RplRoutingTableEntry m_preferredParentRoute;
-  //std::list<RplRoutingTableEntry> m_routingTable;
   RplRoutingTable m_routingTable;
 
   /// General parameters
@@ -416,8 +412,6 @@ private:
   /// DAO based Parameters
   Time m_delayDao;
   int m_numberOfDaoRetries;
-  // is used to construct the Dao and is cleared afterwards
-  //std::map<RplHeaderOption,std::list<RplHeaderOption> > m_childRplTargets;
   std::list<RplHeaderOption> m_childDaoOptions;
 
 
@@ -449,7 +443,6 @@ private:
   /// Timers
   TrickleTimer m_trickleTimer = TrickleTimer (MilliSeconds(pow(2,DEFAULT_DIO_INTERVAL_MIN)), DEFAULT_DIO_INTERVAL_DOUBLINGS,DEFAULT_DIO_REDUNDANCY_CONSTANT);
   Timer m_disMessageTimer = Timer (Timer::CANCEL_ON_DESTROY);
-  //Timer m_daoAckTimer = Timer (Timer::CANCEL_ON_DESTROY);
   Time m_daoAckTimeout = DEFAULT_DAO_ACK_DELAY;
 
   /// Events

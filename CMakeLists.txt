@@ -17,7 +17,7 @@ build_lib(
                  model/rpl-header.cc
                  model/rpl-header-option.cc
                  model/rpl-objective-function.cc
-                 model/rpl-state.cc
+                 model/rpl-node.cc
                  model/rpl-routing-table.cc
                  model/rpl-ipv6-header.cc
     HEADER_FILES model/rpl.h
@@ -25,7 +25,7 @@ build_lib(
                  model/rpl-header.h
                  model/rpl-header-option.h
                  model/rpl-objective-function.h
-                 model/rpl-state.h
+                 model/rpl-node.h
                  model/rpl-routing-table.h
                  model/rpl-ipv6-header.h
     LIBRARIES_TO_LINK ${libinternet}

@@ -56,28 +56,6 @@ struct RplNode
 
 
 
-/**
- * \ingroup rpl
- * \brief   RPL header options field
- */
-class RplState
-{
-public:
-  /**
-   * constructor
-   *
-   * \param dodagId 128-bit IPv6 address set by a DODAG root that uniquely identifies a DODAG
-   * \param grounded Grounded flag (0)
-   */
-  RplState (uint8_t grounded = 0,
-    Ipv6Address dodagId = {});
-private:
-  uint8_t m_grounded : 1;
-  Ipv6Address m_dodagId = {};
-  std::set<RplNode> m_parents;
-  RplNode m_preferredParent;
-};
-
 }
 }
 

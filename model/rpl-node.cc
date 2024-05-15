@@ -17,11 +17,11 @@
  *
  * Author: Alexander Baranyai <e1525251@student.tuwien.ac.at>
  */
-#include "rpl-state.h"
+#include "rpl-node.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("RplState");
+NS_LOG_COMPONENT_DEFINE ("RplNode");
 
 namespace rpl {
 

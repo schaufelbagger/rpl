@@ -21,7 +21,7 @@
 #define RPL_OBJECTIVE_FUNCTION_H
 
 #include "rpl-header.h"
-#include "rpl-state.h"
+#include "rpl-node.h"
 
 #include <math.h>
 

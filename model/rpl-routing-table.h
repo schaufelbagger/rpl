@@ -29,7 +29,7 @@
 #include "ns3/lollipop-counter.h"
 #include "ns3/traced-callback.h"
 
-#include "rpl-state.h"
+#include "rpl-node.h"
 #include "rpl-header-option.h"
 
 
@@ -153,24 +153,6 @@ private:
   uint8_t m_lifetime;
   bool m_downward;
 };
-
-
-
-/*class RplRoute : public Ipv6Route
-{
-public:
-  void SetDownward (bool downward)
-  {
-    m_downward = downward;
-  }
-
-  bool GetDownward () const
-  {
-    return m_downward;
-  }
-private:
-  bool m_downward;
-};*/
 
 
 
