@@ -142,7 +142,15 @@ void RplHeaderOption::Print ()
 
 uint32_t RplHeaderOption::GetSerializedSize (void) const
 {
-  uint32_t size = 2 + m_optionLength;
+  uint32_t size;
+  if (m_type != OPTION_TYPE_PAD1)
+  {
+    size = 2 + m_optionLength;
+  }else
+  {
+    size = 1;
+  }
+  
   return size;
 }
 
@@ -150,8 +158,11 @@ void RplHeaderOption::Serialize (Buffer::Iterator start) const
 {
   Buffer::Iterator i = start;
   i.WriteU8 (m_type);
-  i.WriteU8 (m_optionLength);
-
+  if (m_type != OPTION_TYPE_PAD1)
+  {
+    i.WriteU8 (m_optionLength);
+  }
+  
   switch (m_type)
     {
     case OPTION_TYPE_PAD1:
@@ -195,8 +206,14 @@ uint32_t RplHeaderOption::Deserialize (Buffer::Iterator start)
   Buffer::Iterator i = start;
 
   m_type  = i.ReadU8 ();
-  m_optionLength  = i.ReadU8 ();
-  size = 2 + m_optionLength;
+  if (m_type != OPTION_TYPE_PAD1)
+  {
+    m_optionLength  = i.ReadU8 ();
+    size = 2 + m_optionLength;
+  }else
+  {
+    size = 1;
+  }
 
   switch (m_type)
     {
