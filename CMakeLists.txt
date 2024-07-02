@@ -36,7 +36,6 @@ build_lib(
                       ${libapplications}
     TEST_SOURCES test/rpl-test-suite.cc
                  test/rpl-regression-test-suite.cc
-                 test/rpl-hello-regression-test.cc
                  test/rpl-header-regression-test.cc
                  test/rpl-header-option-regression-test.cc
                  test/rpl-line-test.cc

@@ -15,7 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Author: Alexander Baranyai <e1525251@student.tuwien.ac.at>
+ * Author: Alexander Baranyai <alexander.baranyai@gmx.net>
  */
 
 // Include a header file from your module to test.
@@ -24,7 +24,6 @@
 // An essential include is test.h
 #include "ns3/test.h"
 
-#include "rpl-hello-regression-test.h"
 #include "rpl-header-regression-test.h"
 #include "rpl-header-option-regression-test.h"
 
@@ -50,7 +49,6 @@ RegressionTestSuite::RegressionTestSuite () : TestSuite ("rpl-reg", SYSTEM)
   // TestDuration for TestCase can be QUICK, EXTENSIVE or TAKES_FOREVER
   AddTestCase (new RplHeaderRegressionTest, TestCase::QUICK);
   AddTestCase (new RplHeaderOptionRegressionTest, TestCase::QUICK);
-  //AddTestCase (new RplHelloRegressionTest, TestCase::QUICK);
 }
 
 // Do not forget to allocate an instance of this TestSuite
