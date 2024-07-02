@@ -38,7 +38,7 @@
 #include "ns3/lr-wpan-radio-energy-model-helper.h"*/
 //#include "ns3/statistics-helper.h"
 
-#include "ns3/rpl-state.h"
+#include "ns3/rpl-node.h"
 #include "rpl-example-helper.h"
 
 //#define USE_WIFI

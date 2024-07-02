@@ -39,7 +39,7 @@
 #include "ns3/lr-wpan-module.h"
 #include "ns3/yans-wifi-helper.h"
 
-#include "ns3/rpl-state.h"
+#include "ns3/rpl-node.h"
 #include "ns3/energy-module.h"
 /*#include "ns3/lr-wpan-radio-energy-model.h"
 #include "ns3/lr-wpan-radio-energy-model-helper.h"
