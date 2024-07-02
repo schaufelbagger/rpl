@@ -13,30 +13,6 @@ build_lib_example(
 )
 
 build_lib_example(
-  NAME rpl-3-nodes-example
-  SOURCE_FILES rpl-3-nodes-example.cc
-  rpl-example-helper.cc
-  LIBRARIES_TO_LINK
-    ${librpl}
-    ${libnetwork}
-    ${libsixlowpan}
-    ${libinternet}
-    ${libinternet-apps}
-)
-
-build_lib_example(
-  NAME rpl-3-nodes-ping-example
-  SOURCE_FILES rpl-3-nodes-ping-example.cc
-  rpl-example-helper.cc
-  LIBRARIES_TO_LINK
-    ${librpl}
-    ${libnetwork}
-    ${libsixlowpan}
-    ${libinternet}
-    ${libinternet-apps}
-)
-
-build_lib_example(
   NAME rpl-line-example
   SOURCE_FILES rpl-line-example.cc
   rpl-example-helper.cc
