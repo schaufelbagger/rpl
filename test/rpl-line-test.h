@@ -34,18 +34,22 @@ namespace rpl {
  * See \bugid{780}
  */
 // This is an example TestCase.
-class RplTestTwoNodes : public TestCase
+class RplLineTest : public TestCase
 {
 public:
-  RplTestTwoNodes ();
-  virtual ~RplTestTwoNodes ();
+  RplLineTest ();
+  virtual ~RplLineTest ();
 
 private:
   /// Total simulation time
+  bool m_foundLastNode = false;
+  int m_numberOfNodes = 3;
   const Time m_time;
-  virtual void DoRun (void);
   /// Create & configure test network
-  void CreateNodes ();
+  virtual void DoRun (void);
+  void RouteAddedTraceSink(std::string context, rpl::RplRoutingTableEntry entry);
+  Ptr<rpl::RoutingProtocol> GetRpl(Ptr <Node> node);
+
 };
 
 

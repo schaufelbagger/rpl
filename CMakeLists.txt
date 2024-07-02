@@ -39,7 +39,7 @@ build_lib(
                  test/rpl-hello-regression-test.cc
                  test/rpl-header-regression-test.cc
                  test/rpl-header-option-regression-test.cc
-                 test/rpl-two-nodes-test.cc
+                 test/rpl-line-test.cc
                  ${examples_as_tests_sources}
 )
     
