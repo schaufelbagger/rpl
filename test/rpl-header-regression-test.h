@@ -29,9 +29,8 @@ namespace rpl {
  * \ingroup rpl-test
  * \ingroup tests
  *
- * \brief Trivial (still useful) test of RPL operation
- *
- * This test creates 2 stations with point-to-point link and runs OLSR without any extra traffic.
+ * \brief Test serialisation and deserialisation of RPL headers
+ * 
  */
 class RplHeaderRegressionTest : public TestCase
 {
@@ -47,7 +46,6 @@ private:
   void DaoTest ();
   void DaoAckTest ();
   void CcTest ();
-  //void Ipv6Test();
   void DoRun ();
 };
 

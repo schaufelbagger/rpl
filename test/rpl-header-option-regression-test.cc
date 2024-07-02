@@ -65,24 +65,24 @@ void RplHeaderOptionRegressionTest::PadNTest ()
   RplIcmpv6Header outRplIcmpv6Header;
   DisHeader inDisHeader;
   DisHeader outDisHeader;
+  uint8_t inputLength = 3;
   inDisHeader.SetFlags (3);
 
 
-  inputOption.SetPadN (2);
+  inputOption.SetPadN (inputLength);
 
-  std::cout << inputOption.GetSerializedSize () << std::endl;
+  NS_TEST_ASSERT_MSG_EQ (+inputOption.GetType (), 0x01, "type does not match PadN");
+  NS_TEST_ASSERT_MSG_EQ (+inputOption.GetOptionLength (), +inputLength, "option length does not match in the DAG Metric Container");
 
-  //packet->AddHeader (inputOption);
-  //packet->AddHeader (inDisHeader);
-  //packet->AddHeader (inRplIcmpv6Header);
+  packet->AddHeader (inputOption);
+  packet->AddHeader (inDisHeader);
+  packet->AddHeader (inRplIcmpv6Header);
 
-  //packet->Print (std::cout);
-
-  //packet->RemoveHeader (outRplIcmpv6Header);
-  //packet->RemoveHeader (outputOption);
-  //outputOption.Print ();
-  //const RplHeaderOption::PadN &padn = outputOption.GetPad();
-  //NS_TEST_ASSERT_MSG_EQ (+outDisHeader.GetFlags (), 3, "Code does not match");
+  packet->RemoveHeader (outRplIcmpv6Header);
+  packet->RemoveHeader (outputOption);
+  
+  NS_TEST_ASSERT_MSG_EQ (+outputOption.GetType (), 0x01, "type does not match PadN");
+  NS_TEST_ASSERT_MSG_EQ (+outputOption.GetOptionLength (), +inputLength, "option length does not match in the DAG Metric Container");
 }
 
 void RplHeaderOptionRegressionTest::DagMetricContainerTest ()

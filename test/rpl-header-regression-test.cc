@@ -47,7 +47,6 @@ void RplHeaderRegressionTest::DoRun ()
   this->DaoTest ();
   this->DaoAckTest ();
   this->CcTest ();
-  //this->Ipv6Test();
 
   Simulator::Stop (m_time);
   Simulator::Run ();
@@ -203,45 +202,6 @@ void RplHeaderRegressionTest::CcTest ()
   NS_TEST_ASSERT_MSG_EQ (outCcHeader.GetDodagId (), dodagId, "DODAG ID does not match");
   NS_TEST_ASSERT_MSG_EQ (+outCcHeader.GetDestinationCounter (), +destinationCounter, "Destination Counter does not match");
 }
-
-/*void RplHeaderRegressionTest::Ipv6Test ()
-{
-  Ptr<Packet> packet = Create<Packet> ();
-
-  uint8_t rplInstanceId = 0xAA; 
-  uint16_t rank = 0x0201;
-  uint8_t down = 1;
-  uint8_t rank_error = 0b1;
-  uint8_t forwarding_error = 0b01;
-  uint8_t optionTypeCheck = 0x23;
-  uint8_t optionLengthCheck = 4;
-
-
-  RplIpv6Header inRplIpv6Header = RplIpv6Header (down, rank_error, forwarding_error, rplInstanceId, rank);
-  RplIpv6Header outRplIpv6Header;
-  
-  //RplIcmpv6Header inRplIcmpv6Header (TYPE_DIO);
-  //RplIcmpv6Header outRplIcmpv6Header;
-  
-
- //inRplIpv6Header.Print(std::cout);
-
-  
-
-  packet->AddHeader (inRplIpv6Header);
-  //packet->AddHeader (inRplIcmpv6Header);
-  //packet->RemoveHeader (RplIcmpv6Header);
-  packet->RemoveHeader (outRplIpv6Header);
-  //outRplIpv6Header.Print(std::cout);
-  NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetType (), optionTypeCheck, "Type does not match");
-  NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetLength (), optionLengthCheck, "Length does not match");
-
-  NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetRplInstanceId (), +rplInstanceId, "RPL Instance ID does not match");
-  NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetSenderRank (), +rank, "Rank does not match");
-  NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetO (), +down, "Grounded Bit does not match");
-  NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetR (), +rank_error, "MOP does not match");
-  NS_TEST_ASSERT_MSG_EQ (+outRplIpv6Header.GetF (), +forwarding_error, "PRF does not match");
-}*/
 
 
 
