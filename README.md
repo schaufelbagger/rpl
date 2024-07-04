@@ -26,7 +26,7 @@ To run the examples the following commands can be used:
 NS_LOG="Rpl=level_warn|prefix_all" ./ns3 run "rpl-line-example --run=1 --numberOfNodes=3" --cwd=contrib/tests/rpl-line-example
 NS_LOG="Rpl=level_warn|prefix_all" ./ns3 run "rpl-moving-node-example --run=1" --cwd=contrib/tests/moving_node
 NS_LOG="Rpl=level_warn|prefix_all" ./ns3 run "rpl-alt-path-example --run=1" --cwd=contrib/tests/alt-path
-NS_LOG="Rpl=level_warn|prefix_all" ./ns3 run "rpl-many-nodes-example --run=2 --numberOfNodes=200 --appSetup=1" --cwd=contrib/tests/many_nodes
+NS_LOG="Rpl=level_warn|prefix_all" ./ns3 run "rpl-many-nodes-example --run=1 --numberOfNodes=200 --appSetup=1" --cwd=contrib/tests/many_nodes
 NS_LOG="Rpl=level_warn|prefix_all" ./ns3 run "rpl-energy-example --run=1" --cwd=contrib/tests/energy
 NS_LOG="Rpl=level_warn|prefix_all" ./ns3 run "rpl-tree-example --run=1" --cwd=contrib/tests/tree
 ```
