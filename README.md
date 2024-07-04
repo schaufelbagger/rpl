@@ -8,7 +8,7 @@ An overview of the module and results of the examples are provided in this [thes
 
 Just clone it into the ns-3 src or contrib folder with:
 ```bash
-git clone git@bitbucket.org:tu_alex_group/rpl.git
+git clone git@bitbucket.org:tu_works/rpl.git
 ```
 and run a ns-3 configure like:
 ```bash
