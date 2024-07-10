@@ -881,7 +881,6 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
   }
 
 
-  
   if (m_dodagId == dioHeader.GetDodagId () && m_instanceId == dioHeader.GetRplInstanceId () && m_dodagVersionNumber == dioHeader.GetVersionNumber ())
   {
     // add link local address when node is in the same dodag
@@ -951,10 +950,10 @@ void RoutingProtocol::ReceiveDio (Ptr<Packet> packet, Ipv6Header ipv6Header, uin
 
 
   //TODO Add version number update
-  /*if (dioHeader.GetVersionNumber () > m_dodagVersionNumber)
-  {
-    m_dodagVersionNumber = dioHeader.GetVersionNumber ();
-  }*/
+  //if (dioHeader.GetVersionNumber () > m_dodagVersionNumber)
+  //{
+  //  m_dodagVersionNumber = dioHeader.GetVersionNumber ();
+  //}
 
   NS_ABORT_MSG ("should never reach here");
 
@@ -1166,7 +1165,6 @@ void RoutingProtocol::UpdatePreferredParent ()
     }
   }
 
-
   UpdateDaoParents ();
 }
 
@@ -1328,7 +1326,6 @@ void RoutingProtocol::PoisonChildren ()
 void RoutingProtocol::NotifyInterfaceUp (uint32_t interface)
 {
   // Initialize function may be not executed before the interface goes up
-
   NS_LOG_FUNCTION (this << interface);
 
   if (!m_initialized)
@@ -1427,8 +1424,6 @@ void RoutingProtocol::PrintRoutingTable (std::ostream &os) const
                   << ", RPL Routing table" << std::endl;
   m_routingTable.Print (os);
 }
-
-
 
 
 void RoutingProtocol::RegisterSockets (uint32_t interface)
@@ -1633,9 +1628,6 @@ void RoutingProtocol::ExpireTrickleTimer (void)
   packet->AddHeader (rplIcmpv6Header);
 
   SendOnAllInterfaces (packet, Inet6SocketAddress (RPL_ALL_NODE));
-
-  // TODO remove trickle timer stop
-  //m_trickleTimer.Stop ();
 }
 
 void RoutingProtocol::DisExpireTimer (void)
