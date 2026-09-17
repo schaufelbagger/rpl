@@ -1,6 +1,6 @@
 # RPL
 
-A module which adds the IPv6 Routing Protocol for Low-Power and Lossy Networks (RPL) to ns-3.
+An ns-3 module implementing the IPv6 Routing Protocol for Low-Power and Lossy Networks (RPL, [RFC 6550](https://www.rfc-editor.org/rfc/rfc6550.txt)).
 The module was developed in the ns-3 version 3.41.
 An overview of the module and results of the examples are provided in this [thesis](https://repositum.tuwien.at/handle/20.500.12708/198289).
 
@@ -8,7 +8,7 @@ An overview of the module and results of the examples are provided in this [thes
 
 Just clone it into the ns-3 src or contrib folder with:
 ```bash
-git clone git@bitbucket.org:tu_works/rpl.git
+git clone git@github.com:schaufelbagger/rpl.git
 ```
 and run a ns-3 configure like:
 ```bash
